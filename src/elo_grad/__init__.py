@@ -1,6 +1,7 @@
 import abc
 from dataclasses import dataclass
 from functools import lru_cache
+from importlib.metadata import version
 
 from array import array
 from collections import defaultdict
@@ -15,6 +16,7 @@ from sklearn.metrics import log_loss
 from .plot import HistoryPlotterMixin
 
 __all__ = ["EloEstimator", "LogisticRegression", "RatingSystemMixin", "Regressor", "SGDOptimizer"]
+__version__ = version(__package__)
 
 
 @dataclass(frozen=True)
