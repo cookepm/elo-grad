@@ -1,6 +1,6 @@
 [project]
 name = "elo-grad"
-version = "0.3.0"
+version = "0.3.1"
 description = "Extended Elo rating system implementation exploiting the equivalence with logistic regression."
 authors = [
     {name = "Mike Cooke", email = "cookepm@tcd.ie"},
