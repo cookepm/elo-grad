@@ -184,3 +184,7 @@ $$
 \end{equation}
 $$
 Defining $k:=2\alpha\beta$, we recover (3) and the Elo rating system.
+
+## References
+
+This package was inspired by reading [this blog](https://stmorse.github.io/journal/Elo.html).
