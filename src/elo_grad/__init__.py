@@ -22,14 +22,17 @@ __version__ = version(__package__)
 @dataclass(frozen=True)
 class Regressor:
     """
-    Regressor (additional) to entities.
+    Regressor for Elo rating system (additional to entities).
 
+    Parameters
+    ----------
     name : str
         Name of regressor column in dataset.
     k_factor : Optional[float]
         k-factor for this regressor's dimension. If None, the global k-factor for entities is used.
     lambda_reg : Optional[float]
         Regularisation parameter for regressor model coefficient, if L1 or L2 regularisation is used.
+        NOTE: not implemented yet!
     """
     name: str
     k_factor: Optional[float] = None
