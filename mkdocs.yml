@@ -2,8 +2,8 @@ site_name: EloGrad
 site_description: An extended Elo model Python implementation.
 site_author: Mike Cooke
 
-repo_name: cookepm86/elo-grad
-repo_url: https://github.com/cookepm86/elo-grad
+repo_name: cookepm/elo-grad
+repo_url: https://github.com/cookepm/elo-grad
 
 theme:
   name: material
