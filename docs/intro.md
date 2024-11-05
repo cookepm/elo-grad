@@ -146,24 +146,24 @@ $$
 \begin{align}
 \nabla_{\mathbf{w}}\mathcal l &=
 -\sum_a \left[
-y_a \frac{\nabla_{\mathbf{w}}p(y|\mathbf{w};\mathbf{x})}{p(y|\mathbf{w};\mathbf{x})}
--\frac{(1 - y_a)(\nabla_{\mathbf{w}}p(y|\mathbf{w};\mathbf{x})}{1 - p(y|\mathbf{w};\mathbf{x})}
+y_a \frac{\nabla_{\mathbf{w}}p(y_a|\mathbf{w};\mathbf{x_a})}{p(y_a|\mathbf{w};\mathbf{x_a})}
+-\frac{(1 - y_a)(\nabla_{\mathbf{w}}p(y|\mathbf{w};\mathbf{x}_a)}{1 - p(y_a|\mathbf{w};\mathbf{x}_a)}
 \right],\\\\
-&=-\sum_a\left[
-y_a(1 - p(y|\mathbf{w};\mathbf{x}))
-- (1 - y_a)p(y|\mathbf{w};\mathbf{x}))
-\right]\mathbf{x},\\\\
-&=\sum_a\left[p(y|\mathbf{w};\mathbf{x}) - y_a\right]\mathbf{x},
+&=-\ln 10\sum_a\left[
+y_a(1 - p(y_a|\mathbf{w};\mathbf{x}_a))
+- (1 - y_a)p(y_a|\mathbf{w};\mathbf{x}_a))
+\right]\mathbf{x}_a,\\\\
+&=\ln 10\sum_a\left[p(y_a|\mathbf{w};\mathbf{x}_a) - y_a\right]\mathbf{x}_a,
 \end{align}
 $$
-where $p(y|\mathbf{w};\mathbf{x})$ is the logistic function (5),
+where $p(y_a|\mathbf{w};\mathbf{x}_a)$ is the logistic function (5),
 $l$ is the negative log-likelihood and $a$ runs over the set of observations/games.
 
 The update method for the model parameters is then given by
 $$
 \begin{equation}
 \mathbf{w}^t
-=\mathbf{w}^{t-1} + \alpha \sum_a \left(y_a - p(y|\mathbf{w};\mathbf{x})\right).
+=\mathbf{w}^{t-1} + \alpha \ln 10 \sum_a \left(y_a - p(y|\mathbf{w};\mathbf{x}_a)\right).
 \end{equation}
 $$
 
@@ -173,17 +173,17 @@ this becomes
 $$
 \begin{equation}
 \mathbf{w}^t
-=\mathbf{w}^{t-1} + \alpha \left(y_{ij} - \frac{1}{1 + 10^{-(w_i - w_j)}}\right).
+=\mathbf{w}^{t-1} + \alpha \ln 10 \left(y_{ij} - \frac{1}{1 + 10^{-(w_i - w_j)}}\right).
 \end{equation}
 $$
 Defining $r_i:=w_i/2\beta$, becomes
 $$
 \begin{equation}
 \mathbf{r}^t
-=\mathbf{r}^{t-1} + 2\alpha\beta \left(y_{ij} - \frac{1}{1 + 10^{-(r_i - r_j) / 2\beta}}\right).
+=\mathbf{r}^{t-1} + 2\alpha\beta\ln10 \left(y_{ij} - \frac{1}{1 + 10^{-(r_i - r_j) / 2\beta}}\right).
 \end{equation}
 $$
-Defining $k:=2\alpha\beta$, we recover (3) and the Elo rating system.
+Defining $k:=2\alpha\beta\ln10$, we recover (3) and the Elo rating system.
 
 ## References
 
