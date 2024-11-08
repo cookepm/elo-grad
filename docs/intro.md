@@ -49,11 +49,11 @@ p(y|\mathbf{w};\mathbf{x})^y\left(1-p(y|\mathbf{w};\mathbf{x})\right)^{1-y}.
 \end{equation}
 $$
 
-The logistic regression model (with base 10) assumes the outcome probability is given by
+The logistic regression model assumes the outcome probability is given by
 $$
 \begin{equation}
 p(y|\mathbf{w};\mathbf{x})=
-\frac{1}{1 + 10^{-\mathbf{w}\cdot\mathbf{x}}}.
+\frac{1}{1 + e^{-\mathbf{w}\cdot\mathbf{x}}}.
 \end{equation}
 $$
 We have not included an intercept.
@@ -99,11 +99,11 @@ With the regressors described above, we can rewrite (5) as
 $$
 \begin{equation}
 p(y_{ij}|\mathbf{w};\mathbf{x})=
-\frac{1}{1 + 10^{-(w_i - w_j)}},
+\frac{1}{1 + e^{-(w_i - w_j)}},
 \end{equation}
 $$
 where, as in (2), $y_{ij}$ represents the score/outcome of a game between team $i$ and $j$.
-If we define $r_i:=w_i/2\beta$ then we recover the Elo expected score/outcome equation (1).
+If we define $r_i:=2\beta w_i/\ln 10$ then we recover the Elo expected score/outcome equation (1).
 
 ## Stochastic Gradient Descent
 
@@ -149,11 +149,11 @@ $$
 y_a \frac{\nabla_{\mathbf{w}}p(y_a|\mathbf{w};\mathbf{x_a})}{p(y_a|\mathbf{w};\mathbf{x_a})}
 -\frac{(1 - y_a)(\nabla_{\mathbf{w}}p(y|\mathbf{w};\mathbf{x}_a)}{1 - p(y_a|\mathbf{w};\mathbf{x}_a)}
 \right],\\\\
-&=-\ln 10\sum_a\left[
+&=-\sum_a\left[
 y_a(1 - p(y_a|\mathbf{w};\mathbf{x}_a))
 - (1 - y_a)p(y_a|\mathbf{w};\mathbf{x}_a))
 \right]\mathbf{x}_a,\\\\
-&=\ln 10\sum_a\left[p(y_a|\mathbf{w};\mathbf{x}_a) - y_a\right]\mathbf{x}_a,
+&=\sum_a\left[p(y_a|\mathbf{w};\mathbf{x}_a) - y_a\right]\mathbf{x}_a,
 \end{align}
 $$
 where $p(y_a|\mathbf{w};\mathbf{x}_a)$ is the logistic function (5),
@@ -163,7 +163,7 @@ The update method for the model parameters is then given by
 $$
 \begin{equation}
 \mathbf{w}^t
-=\mathbf{w}^{t-1} + \alpha \ln 10 \sum_a \left(y_a - p(y|\mathbf{w};\mathbf{x}_a)\right).
+=\mathbf{w}^{t-1} + \alpha \sum_a \left(y_a - p(y|\mathbf{w};\mathbf{x}_a)\right).
 \end{equation}
 $$
 
@@ -173,17 +173,17 @@ this becomes
 $$
 \begin{equation}
 \mathbf{w}^t
-=\mathbf{w}^{t-1} + \alpha \ln 10 \left(y_{ij} - \frac{1}{1 + 10^{-(w_i - w_j)}}\right).
+=\mathbf{w}^{t-1} + \alpha \left(y_{ij} - \frac{1}{1 + e^{-(w_i - w_j)}}\right).
 \end{equation}
 $$
-Defining $r_i:=w_i/2\beta$, becomes
+Using $r_i=2\beta w_i/\ln 10$, this becomes
 $$
 \begin{equation}
 \mathbf{r}^t
-=\mathbf{r}^{t-1} + 2\alpha\beta\ln10 \left(y_{ij} - \frac{1}{1 + 10^{-(r_i - r_j) / 2\beta}}\right).
+=\mathbf{r}^{t-1} + \frac{2\alpha\beta}{\ln10} \left(y_{ij} - \frac{1}{1 + 10^{-(r_i - r_j) / 2\beta}}\right).
 \end{equation}
 $$
-Defining $k:=2\alpha\beta\ln10$, we recover (3) and the Elo rating system.
+Defining $k:=2\alpha\beta / \ln10$, we recover (3) and the Elo rating system.
 
 ## References
 
