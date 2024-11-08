@@ -16,6 +16,9 @@ All models are `scikit-learn` compatible.
     - See [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data.
 - Elo rating system for binary outcomes with additional regressors, *e.g.* home advantage.
     - See [Additional Regressors](https://cookepm.github.io/elo-grad/feature_ref/additional_regressors/) for the theory and [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data.
+- Elo rating system for count data based on Poisson regression.
+  - `pandas` and `scikit-learn` compatible.
+  - See [Poisson Elo](https://cookepm.github.io/elo-grad/feature_ref/poisson.md) for the theory and [`examples/football.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb) for an example using Premier League football data.
 
 ## :book: Installation
 
@@ -61,17 +64,19 @@ ratings = estimator.model.ratings
 
 In rough order, things we want to add are:
 
-- Poisson model support
 - Regularization (L1 & L2)
 - Support for Polars
 - Head-to-head ratings
+- Skellam model support
 - Interaction terms
 - Other optimizers, e.g. momentum
-- Support for draws
 - Extend plotting support, e.g. plotly
+- Support for handling correlation in scores
+- Explore any ways we can approximate standard errors for the ratings
 
 ## :blue_book: References
 
 1. Elo rating system: https://en.wikipedia.org/wiki/Elo_rating_system
 2. Elo rating system as logistic regression with stochastic gradient descent: https://stmorse.github.io/journal/Elo.html
 3. Elo rating system for NFL predictions: https://fivethirtyeight.com/methodology/how-our-nfl-predictions-work/
+4. Elo rating system based on Poisson regression: https://github.com/octonion/puzzles/blob/master/elo/poisson.py
