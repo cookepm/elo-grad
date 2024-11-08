@@ -130,10 +130,16 @@ $$
 \begin{equation}
 \mathbf{w}^t
 =\mathbf{w}^{t-1} + \alpha \left(y_{ij} - \exp(w_i - w_{\underbar{j}})\right)
-=\mathbf{w}^{t-1} + k \left(y_{ij} - 10^{(r_i - r_{\underbar{j}}) / 2\beta}\right).
 \end{equation}
 $$
-where $r_i:=2\beta w_i / \ln 10$ and $k:=\alpha$.
+or
+$$
+\begin{equation}
+\mathbf{r}^t
+=\mathbf{r}^{t-1} + k \left(y_{ij} - 10^{(r_i - r_{\underbar{j}}) / 2\beta}\right).
+\end{equation}
+$$
+where $r_i:=2\beta w_i / \ln 10$ and $k:=2\alpha\beta / \ln10$.
 We perform this change of variables to align with Elo conventions.
 Now (5) is given by
 $$
