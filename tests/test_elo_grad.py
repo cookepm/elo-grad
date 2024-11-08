@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from elo_grad import LogisticRegression, SGDOptimizer, EloEstimator, Regressor
+from elo_grad import LogisticRegression, SGDOptimizer, EloEstimator, Regressor, PoissonRegression, PoissonEloEstimator
 
 
 class TestLogisticRegression:
@@ -29,6 +29,37 @@ class TestLogisticRegression:
             beta=1,
         )
         model_2 = LogisticRegression(
+            default_init_rating=1,
+            init_ratings=None,
+            beta=1,
+        )
+        assert model_1.calculate_expected_score(1, -1) == model_2.calculate_expected_score(-1, 1)
+
+
+class TestPoissonRegression:
+    def test_calculate_expected_score_equal_ratings(self):
+        model = PoissonRegression(
+            default_init_rating=1,
+            init_ratings=None,
+            beta=1,
+        )
+        assert model.calculate_expected_score(1, -1) == 1
+
+    def test_calculate_expected_score_higher_rating(self):
+        model = PoissonRegression(
+            default_init_rating=1,
+            init_ratings=None,
+            beta=1,
+        )
+        assert model.calculate_expected_score(2, -1) > 1
+
+    def test_calculate_expected_score_inverse(self):
+        model_1 = PoissonRegression(
+            default_init_rating=1,
+            init_ratings=None,
+            beta=1,
+        )
+        model_2 = PoissonRegression(
             default_init_rating=1,
             init_ratings=None,
             beta=1,
@@ -99,7 +130,7 @@ class TestSGDOptimizer:
             beta=200,
         )
         opt = SGDOptimizer(k_factor=(20,))
-        with pytest.raises(ValueError, match="Invalid result value"):
+        with pytest.raises(ValueError, match="Invalid score value"):
             next(
                 opt.calculate_update_step(model, -1, "entity_1", "entity_2", 0, None)
             )
@@ -181,6 +212,87 @@ class TestEloEstimator:
             "B": (1, 1200 - 10 - 9.9913 - 9.3886),
             "C": (2, 1200 - 9.6979 + 9.9913 - 9.4421 + 9.3886),
             "home": (2, 0 + 0.5 + 0.4849 + 0.4694)
+        }
+        for k, v in estimator.model.ratings.items():
+            assert round(expected_ratings[k][1], 2) == round(v[1], 2)
+
+
+class TestPoissonEloEstimator:
+
+    estimator = PoissonEloEstimator(k_factor=20, default_init_rating=1200)
+
+    def test_transform_raises(self):
+        with pytest.raises(ValueError, match="X must be a pandas DataFrame."):
+            self.estimator.fit(1)
+
+        df = pd.DataFrame(
+            columns=["entity_1", "entity_2", "score"],
+            index=[3, 2, 1],
+        )
+        with pytest.raises(ValueError, match="Index must be sorted."):
+            self.estimator.fit(df)
+
+    def test_transform(self):
+        df = pd.DataFrame(
+            data=[
+                ("A", "B", 1),
+                ("A", "C", 2),
+                ("B", "C", 0),
+                ("C", "A", 0),
+                ("C", "B", 4),
+            ],
+            columns=["entity_1", "entity_2", "score"],
+            index=[1, 2, 3, 4, 4],
+        )
+
+        expected_arr = np.array([1.0, 1.0, 1.122, 0.9039, 1.154])
+
+        output_arr = self.estimator.predict(df)
+
+        # Check expected scores
+        np.testing.assert_allclose(expected_arr, output_arr, atol=1e-2)
+
+        # Check ratings
+        expected_ratings = {
+            "A": (2, 1200 + 0 + 20 + 18.078),
+            "B": (1, 1200 - 0 - 22.44 - 56.92),
+            "C": (2, 1200 - 20 + 22.44 - 18.078 + 56.92),
+        }
+        for k, v in self.estimator.model.ratings.items():
+            assert round(expected_ratings[k][1], 2) == round(v[1], 2)
+
+    def test_transform_w_additional_regressors(self):
+        estimator = PoissonEloEstimator(
+            k_factor=20,
+            default_init_rating=1200,
+            init_ratings=dict(home=(None, 0)),
+            additional_regressors=[Regressor(name="home", k_factor=1)],
+        )
+        df = pd.DataFrame(
+            data=[
+                ("A", "B", 1, 1),
+                ("A", "C", 2, 1),
+                ("B", "C", 0, 0),
+                ("C", "A", 0, 1),
+                ("C", "B", 4, 1),
+            ],
+            columns=["entity_1", "entity_2", "score", "home"],
+            index=[1, 2, 3, 4, 4],
+        )
+
+        expected_arr = np.array([1.0, 1.0, 1.122, 0.9091, 1.1606])
+
+        output_arr = estimator.predict(df)
+
+        # Check expected scores
+        np.testing.assert_allclose(expected_arr, output_arr, atol=1e-2)
+
+        # Check ratings
+        expected_ratings = {
+            "A": (2, 1200 + 0 + 20 + 18.182),
+            "B": (1, 1200 - 0 - 22.44 - 56.788),
+            "C": (2, 1200 - 20 + 22.44 - 18.182 + 56.788),
+            "home": (2, 0 + 0 + 1 - 0.9091 + 2.8394)
         }
         for k, v in estimator.model.ratings.items():
             assert round(expected_ratings[k][1], 2) == round(v[1], 2)

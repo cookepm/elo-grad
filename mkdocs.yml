@@ -51,4 +51,5 @@ nav:
   - Elo as Logistic Regression: intro.md
   - Feature Reference:
       - Additional Regressors: feature_ref/additional_regressors.md
+      - Poisson Elo: feature_ref/poisson.md
   - API Reference: api.md
