@@ -41,11 +41,21 @@ class Regressor:
         k-factor for this regressor's dimension. If None, the global k-factor for entities is used.
     lambda_reg : Optional[float]
         Regularisation parameter for regressor model coefficient, if L1 or L2 regularisation is used.
-        NOTE: not implemented yet!
+    penalty : Optional[str]
+        Specify the norm of the penalty:
+
+        - `None`: no penalty is added
+        - `l1`: add a L1 penalty term
+        - `l2`: add a L2 penalty term
     """
     name: str
     k_factor: Optional[float] = None
     lambda_reg: Optional[float] = None
+    penalty: Optional[str] = None
+
+    def __post_init__(self):
+        if self.penalty is not None and self.penalty not in ("l1", "l2"):
+            raise ValueError("Penalty must be None, 'l1' or 'l2'.")
 
 
 class Model(abc.ABC):
@@ -72,8 +82,17 @@ class Model(abc.ABC):
     def calculate_expected_score(self, *args) -> float:
         ...
 
+    @abc.abstractmethod
+    def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
+        ...
+
 
 class Optimizer(abc.ABC):
+
+    @classmethod
+    @abc.abstractmethod
+    def _get_penalty(cls, model: Model, regressor: Regressor) -> float:
+        ...
 
     @abc.abstractmethod
     def calculate_update_step(
@@ -82,10 +101,8 @@ class Optimizer(abc.ABC):
         y: int,
         entity_1: str,
         entity_2: str,
-        # The two arguments below help to optimize things, but are not very natural
-        # and will probably come back to bite me!
-        regressor_contrib: float,
-        regressor_values: Optional[Tuple[float, ...]],
+        additional_regressor_values: Optional[Tuple[float, ...]],
+        expected_score: Optional[float],
     ) -> Generator[float, None, None]:
         ...
 
@@ -100,12 +117,17 @@ class LogisticRegression(Model):
     ) -> None:
         super().__init__(beta, default_init_rating, init_ratings)
 
-    def calculate_gradient(self, y: int, *args) -> float:
+    def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
         if y not in {0, 1}:
             raise ValueError("Invalid score value %s", y)
-        y_pred: float = self.calculate_expected_score(*args)
 
-        return y - y_pred
+        return y - expected_score
+
+    def calculate_gradient(self, y: int, *args) -> float:
+        y_pred: float = self.calculate_expected_score(*args)
+        grad: float = self.calculate_gradient_from_expected_score(y, y_pred)
+
+        return grad
 
     # We should make maxsize configurable
     @lru_cache(maxsize=512)
@@ -125,14 +147,19 @@ class PoissonRegression(Model):
     ) -> None:
         super().__init__(beta, default_init_rating, init_ratings)
 
-    def calculate_gradient(self, y: int, *args) -> float:
+    def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
         if not isinstance(y, int):
             raise ValueError("Invalid score value %s", y)
+
         # This is the same as for the logistic regression model
         # - is this just a property of all exponential family models?
-        y_pred: float = self.calculate_expected_score(*args)
+        return y - expected_score
 
-        return y - y_pred
+    def calculate_gradient(self, y: int, *args) -> float:
+        y_pred: float = self.calculate_expected_score(*args)
+        grad: float = self.calculate_gradient_from_expected_score(y, y_pred)
+
+        return grad
 
     # We should make maxsize configurable
     @lru_cache(maxsize=512)
@@ -142,8 +169,26 @@ class PoissonRegression(Model):
 
 class SGDOptimizer(Optimizer):
 
-    def __init__(self, k_factor: Tuple[float, ...]) -> None:
-        self.k_factor: Tuple[float, ...] = k_factor
+    def __init__(self, k_factor: float, additional_regressors: Optional[List[Regressor]]) -> None:
+        self.k_factor: float = k_factor
+        self.additional_regressors: Optional[List[Regressor]] = additional_regressors
+        if additional_regressors is None:
+            self.k_factor_vec: Tuple[float, ...] = (k_factor,)
+        else:
+            self.k_factor_vec = (
+                k_factor,
+                *(r.k_factor if r.k_factor is not None else k_factor for r in additional_regressors),
+            )
+
+    @classmethod
+    def _get_penalty(cls, model: Model, regressor: Regressor) -> float:
+        match regressor.penalty:
+            case "l1":
+                return regressor.lambda_reg * math.copysign(1, model.ratings[regressor.name][1])  # type:ignore
+            case "l2":
+                return 2 * regressor.lambda_reg * model.ratings[regressor.name][1]  # type:ignore
+            case _:
+                return 0.0
 
     def calculate_update_step(
         self,
@@ -151,19 +196,31 @@ class SGDOptimizer(Optimizer):
         y: int,
         entity_1: str,
         entity_2: str,
-        regressor_contrib: float,
-        regressor_values: Optional[Tuple[float, ...]],
+        additional_regressor_values: Optional[Tuple[float, ...]],
+        expected_score: Optional[float],
     ) -> Generator[float, None, None]:
-        entity_grad: float = model.calculate_gradient(
-            y,
-            model.ratings[entity_1][1],
-            -model.ratings[entity_2][1],
-            regressor_contrib,
-        )
-        yield self.k_factor[0] * entity_grad
-        if regressor_values is not None:
-            for i, v in enumerate(regressor_values, start=1):
-                yield self.k_factor[i] * v * entity_grad
+        if expected_score is not None:
+            # If we already know the expected score, we shouldn't recalculate it
+            entity_grad: float = model.calculate_gradient_from_expected_score(y, expected_score)
+        else:
+            if self.additional_regressors is None:
+                additional_regressor_contrib: float = 0.0
+            else:
+                additional_regressor_contrib = sum(
+                    model.ratings[r.name][1] * v  # type:ignore
+                    for r, v in zip(self.additional_regressors, additional_regressor_values)  # type:ignore
+                )
+            entity_grad = model.calculate_gradient(
+                y,
+                model.ratings[entity_1][1],
+                -model.ratings[entity_2][1],
+                additional_regressor_contrib,
+            )
+
+        yield self.k_factor_vec[0] * entity_grad
+        if self.additional_regressors is not None:
+            for r, v in zip(self.additional_regressors, additional_regressor_values):  # type:ignore
+                 yield r.k_factor * ((v * entity_grad) - self._get_penalty(model, r))  # type:ignore
 
 
 class RatingSystemMixin(abc.ABC):
@@ -282,8 +339,6 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    k_factor_vec : Tuple[float, ...]
-        Vector of Elo K-factor/step-size for gradient descent.
     model : Model
         Underlying statistical model.
     optimizer : Optimizer
@@ -361,11 +416,10 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         if additional_regressors is not None:
             self.columns.extend([r.name for r in additional_regressors])
         self.k_factor: float = k_factor
-        self.k_factor_vec: Tuple[float, ...] = (
-            k_factor,
-            *(r.k_factor if r.k_factor is not None else k_factor for r in self.additional_regressors),
+        self.optimizer: Optimizer = SGDOptimizer(
+            k_factor=self.k_factor,
+            additional_regressors=self.additional_regressors,
         )
-        self.optimizer: Optimizer = SGDOptimizer(k_factor=self.k_factor_vec)
         self.track_rating_history: bool = track_rating_history
         self.rating_history: List[Tuple[Optional[int], float]] = defaultdict(list)  # type:ignore
 
@@ -388,11 +442,7 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
                 default_init_rating=self.default_init_rating,
                 init_ratings=self.init_ratings,
             )
-            self.k_factor_vec = (
-                self.k_factor,
-                *(r.k_factor if r.k_factor is not None else self.k_factor for r in self.additional_regressors),
-            )
-            self.optimizer = SGDOptimizer(k_factor=self.k_factor_vec)
+            self.optimizer = SGDOptimizer(k_factor=self.k_factor, additional_regressors=self.additional_regressors)
 
             return result
 
@@ -458,8 +508,8 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
                 y=score,
                 entity_1=entity_1,
                 entity_2=entity_2,
-                regressor_contrib=additional_regressor_contrib,
-                regressor_values=additional_regressor_values,
+                additional_regressor_values=additional_regressor_values,
+                expected_score=expected_score,
             )
             entity_update: float = next(_rating_deltas)
             rating_deltas[entity_1] += entity_update
@@ -499,8 +549,6 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    k_factor_vec : Tuple[float, ...]
-        Vector of Elo K-factor/step-size for gradient descent.
     model : Model
         Underlying statistical model.
     optimizer : Optimizer
@@ -590,8 +638,6 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    k_factor_vec : Tuple[float, ...]
-        Vector of Elo K-factor/step-size for gradient descent.
     model : Model
         Underlying statistical model.
     optimizer : Optimizer
