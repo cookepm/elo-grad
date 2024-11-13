@@ -15,10 +15,11 @@ All models are `scikit-learn` compatible.
     - `pandas` and `scikit-learn` compatible.
     - See [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data.
 - Elo rating system for binary outcomes with additional regressors, *e.g.* home advantage.
+    - L1 and L2 regularisation supported for additional regressors (see [Regularisation](https://cookepm.github.io/elo-grad/feature_ref/regularisation/)). 
     - See [Additional Regressors](https://cookepm.github.io/elo-grad/feature_ref/additional_regressors/) for the theory and [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data.
 - Elo rating system for count data based on Poisson regression.
-  - `pandas` and `scikit-learn` compatible.
-  - See [Poisson Elo](https://cookepm.github.io/elo-grad/feature_ref/poisson.md) for the theory and [`examples/football.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb) for an example using Premier League football data.
+    - `pandas` and `scikit-learn` compatible.
+    - See [Poisson Elo](https://cookepm.github.io/elo-grad/feature_ref/poisson.md) for the theory and [`examples/football.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb) for an example using Premier League football data.
 
 ## :book: Installation
 
@@ -64,7 +65,6 @@ ratings = estimator.model.ratings
 
 In rough order, things we want to add are:
 
-- Regularization (L1 & L2)
 - Support for Polars
 - Head-to-head ratings
 - Skellam model support
