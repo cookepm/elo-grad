@@ -64,4 +64,5 @@ nav:
   - Feature Reference:
       - Additional Regressors: feature_ref/additional_regressors.md
       - Poisson Elo: feature_ref/poisson.md
+      - Regularisation: feature_ref/regularisation.md
   - API Reference: api.md
