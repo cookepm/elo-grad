@@ -19,7 +19,7 @@ class HistoryPlotterMixin:
     """
 
     @no_type_check
-    def plot(self, entities: List[str], ax=None, **kwargs):
+    def plot(self, entities: List[str], ax=None, labels: List[str] = None, **kwargs):
         """
         Plot the rating history of specified entities.
 
@@ -30,6 +30,8 @@ class HistoryPlotterMixin:
         ax : matplotlib.axes.Axes, optional
             A Matplotlib Axes object to plot on. If None, a new figure and axes
             are created.
+        labels : List[str]
+            Optional labels for plots.
         **kwargs
             Keyword arguments to pass to Axe.plot
 
@@ -43,11 +45,11 @@ class HistoryPlotterMixin:
         if ax is None:
             fig, ax = plt.subplots()
 
-        for player in entities:
+        for i, player in enumerate(entities):
             ax.plot(
                 pd.to_datetime([p[0] for p in self.rating_history[player]]),
                 [p[1] for p in self.rating_history[player]],
-                label=player,
+                label=labels[i] if labels is not None else player,
                 **kwargs,
             )
         ax.set(
