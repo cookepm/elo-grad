@@ -7,19 +7,22 @@
 as logistic regression with stochastic gradient descent
 (see [Elo as Logistic Regression](intro.md) for a walkthrough)
 to offer a collection of extensions to the rating system.
-All models are `scikit-learn` compatible.
+All models are `narwhals`
+(for dataframe libraries with [full API support](https://narwhals-dev.github.io/narwhals/))
+and `scikit-learn` compatible.
 
 ## :sparkles: Features
 
 - Standard Elo rating system for binary outcomes.
-    - `pandas` and `scikit-learn` compatible.
-    - See [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data.
+    - `narwhals` and `scikit-learn` compatible.
+    - Does not support draws.
+    - See [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data and `polars`.
 - Elo rating system for binary outcomes with additional regressors, *e.g.* home advantage.
     - L1 and L2 regularisation supported for additional regressors (see [Regularisation](https://cookepm.github.io/elo-grad/feature_ref/regularisation/)). 
-    - See [Additional Regressors](https://cookepm.github.io/elo-grad/feature_ref/additional_regressors/) for the theory and [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data.
+    - See [Additional Regressors](https://cookepm.github.io/elo-grad/feature_ref/additional_regressors/) for the theory and [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data and `polars`.
 - Elo rating system for count data based on Poisson regression.
-    - `pandas` and `scikit-learn` compatible.
-    - See [Poisson Elo](https://cookepm.github.io/elo-grad/feature_ref/poisson.md) for the theory and [`examples/football.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb) for an example using Premier League football data.
+    - `narwhals` and `scikit-learn` compatible.
+    - See [Poisson Elo](https://cookepm.github.io/elo-grad/feature_ref/poisson.md) for the theory and [`examples/football.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb) for an example using Premier League football data and `pandas`.
 
 ## :book: Installation
 
@@ -41,17 +44,20 @@ pip install elo-grad[examples]
 ```python
 from elo_grad import EloEstimator, Regressor
 
-# Input DataFrame with sorted index of Unix timestamps
-# and columns entity_1 | entity_2 | score | home
-# where score = 1 if player_1 won and score = 0 if
-# player_2 won and home is a boolean flag indicating if
-# entity_1 has home advantage.
+# Input dataframe with columns 
+# t | entity_1 | entity_2 | score | home
+# sorted (in ascending order) on t
+# where t is the Unix timestamp (in seconds) of
+# the game and score = 1 if player_1 won and score = 0 
+# if player_2 won and home is a boolean flag indicating 
+# if entity_1 has home advantage.
 df = ...
 estimator = EloEstimator(
     k_factor=20, 
     default_init_rating=1200,
     entity_cols=("player_1", "player_2"),
     score_col="result",
+    date_col="t",
     init_ratings=dict(home=(None, 0)),
     additional_regressors=[Regressor(name='home', k_factor=0.1)],
 )
@@ -65,7 +71,6 @@ ratings = estimator.model.ratings
 
 In rough order, things we want to add are:
 
-- Support for Polars
 - Head-to-head ratings
 - Skellam model support
 - Interaction terms
