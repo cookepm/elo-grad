@@ -5,11 +5,10 @@ from importlib.metadata import version
 
 from array import array
 from collections import defaultdict
-from typing import Tuple, Optional, Dict, List, Callable, Generator, Type
+from typing import Tuple, Optional, Dict, List, Callable, Generator, Type, Any
 
 import math
-import numpy as np
-import pandas as pd
+import narwhals as nw
 from sklearn.base import BaseEstimator
 from sklearn.metrics import log_loss, mean_poisson_deviance
 
@@ -26,6 +25,8 @@ __all__ = [
     "SGDOptimizer",
 ]
 __version__ = version(__package__)
+
+PRED_PROBA: str = "pred_proba"
 
 
 @dataclass(frozen=True)
@@ -270,12 +271,19 @@ class ClassifierRatingSystemMixin(RatingSystemMixin):
             y, self.predict_proba(X)[:, 1], sample_weight=sample_weight
         )
 
-    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
-        preds = self._transform(X, return_expected_score=True)  # type:ignore
-        return np.vstack((1 - preds, preds)).T  # type:ignore
+    def predict_proba(self, X):
+        pred_proba = self._transform(X, return_expected_score=True)
+        return (
+            pred_proba
+            .to_frame()
+            .select(
+                (1 - nw.col(PRED_PROBA)).alias("0"),
+                nw.col(PRED_PROBA).alias("1"),
+            )
+        )
 
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
-        return self.predict_proba(X)[:, 1] > 0.5
+    def predict(self, X):
+        return (self.predict_proba(X)["1"] >= 0.5).rename(PRED_PROBA)
 
 
 class RegressionRatingSystemMixin(RatingSystemMixin):
@@ -315,7 +323,7 @@ class RegressionRatingSystemMixin(RatingSystemMixin):
             y, self.predict(X), sample_weight=sample_weight
         )
 
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
+    def predict(self, X):
         return self._transform(X, return_expected_score=True)  # type:ignore
 
 
@@ -348,6 +356,9 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
     score_col : str
         Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
         Draws are not currently supported.
+    date_col : str
+        Name of date column, which has Unix timestamp (in seconds) of the
+        game.
     additional_regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
@@ -374,6 +385,7 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]],
         entity_cols: Tuple[str, str],
         score_col: str,
+        date_col: str,
         additional_regressors: Optional[List[Regressor]],
         track_rating_history: bool,
     ) -> None:
@@ -393,8 +405,10 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         entity_cols : Tuple[str, str]
             Names of columns identifying the names of the entities playing the games.
         score_col : str
-            Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
-            Draws are not currently supported.
+            Name of score column
+        date_col : str
+            Name of date column, which has Unix timestamp (in seconds) of the
+            game.
         additional_regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
@@ -402,7 +416,8 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         """
         self.entity_cols: Tuple[str, str] = entity_cols
         self.score_col: str = score_col
-        self.columns: List[str] = list(entity_cols) + [score_col]
+        self.date_col: str = date_col
+        self.columns: List[str] = [date_col, *entity_cols, score_col]
         self.beta: float = beta
         self.default_init_rating: float = default_init_rating
         self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
@@ -463,21 +478,21 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         for k, v in self.model.ratings.items():
             self.rating_history[k].append(v)  # type:ignore
 
-    def _transform(self, X: pd.DataFrame, return_expected_score: bool) -> Optional[np.ndarray]:
-        if not isinstance(X, pd.DataFrame):
-            raise ValueError("X must be a pandas DataFrame.")
-        X = X[self.columns]
+    def _transform(self, X, return_expected_score):
+        df: nw.DataFrame = nw.from_native(X)
+        native_namespace: Any = nw.get_native_namespace(df)
+        df = df.select(self.columns)
 
-        if not X.index.is_monotonic_increasing:
-            raise ValueError("Index must be sorted.")
-        current_ix: int = X.index[0]
+        if not df[self.date_col].is_sorted(descending=False):
+            raise ValueError("DataFrame must be sorted by date.")
+        current_ix: int = df[self.date_col].item(0)
 
         additional_regressor_flag: bool = len(self.additional_regressors) > 0
         additional_regressor_contrib: float = 0.0
         additional_regressor_values: Optional[Tuple[float, ...]] = None
         preds = array("f") if return_expected_score else None
         rating_deltas: Dict[str, float] = defaultdict(float)
-        for row in X.itertuples(index=True):
+        for row in df.iter_rows(named=False, buffer_size=512):
             if additional_regressor_flag:
                 ix, entity_1, entity_2, score, *additional_regressor_values = row
             else:
@@ -523,10 +538,10 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
             self.record_ratings()
 
         if return_expected_score:
-            return np.array(preds)
+            return nw.new_series(name=PRED_PROBA, values=preds, native_namespace=native_namespace)
         return None
 
-    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None):
+    def fit(self, X, y=None):
         self._transform(X, return_expected_score=False)
         return self
 
@@ -558,6 +573,9 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
     score_col : str
         Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
         Draws are not currently supported.
+    date_col : str
+        Name of date column, which has Unix timestamp (in seconds) of the
+        game.
     additional_regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
@@ -583,6 +601,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
+        date_col: str = "t",
         additional_regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
@@ -602,6 +621,9 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         score_col : str
             Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
             Draws are not currently supported.
+        date_col : str
+            Name of date column, which has Unix timestamp (in seconds) of the
+            game.
         additional_regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
@@ -615,6 +637,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
             init_ratings=init_ratings,
             entity_cols=entity_cols,
             score_col=score_col,
+            date_col=date_col,
             additional_regressors=additional_regressors,
             track_rating_history=track_rating_history,
         )
@@ -647,6 +670,9 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
     score_col : str
         Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
         Draws are not currently supported.
+    date_col : str
+        Name of date column, which has Unix timestamp (in seconds) of the
+        game.
     additional_regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
@@ -670,6 +696,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
+        date_col: str = "t",
         additional_regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
@@ -689,6 +716,9 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         score_col : str
             Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
             Draws are not currently supported.
+        date_col : str
+            Name of date column, which has Unix timestamp (in seconds) of the
+            game.
         additional_regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
@@ -702,6 +732,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
             init_ratings=init_ratings,
             entity_cols=entity_cols,
             score_col=score_col,
+            date_col=date_col,
             additional_regressors=additional_regressors,
             track_rating_history=track_rating_history,
         )

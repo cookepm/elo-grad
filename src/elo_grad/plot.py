@@ -1,6 +1,5 @@
+import datetime
 from typing import List, no_type_check
-
-import pandas as pd
 
 
 class HistoryPlotterMixin:
@@ -47,7 +46,7 @@ class HistoryPlotterMixin:
 
         for i, player in enumerate(entities):
             ax.plot(
-                pd.to_datetime([p[0] for p in self.rating_history[player]]),
+                [datetime.datetime.fromtimestamp(p[0]) for p in self.rating_history[player]],
                 [p[1] for p in self.rating_history[player]],
                 label=labels[i] if labels is not None else player,
                 **kwargs,
