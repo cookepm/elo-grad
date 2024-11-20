@@ -9,7 +9,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "narwhals>=1.14.0",
-    "scikit-learn>=1.5.2",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +22,9 @@ examples = [
 ]
 plot = [
     "matplotlib>=3.9.2",
+]
+sklearn = [
+    "scikit-learn>=1.5.2",
 ]
 
 [build-system]
