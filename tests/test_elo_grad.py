@@ -210,27 +210,26 @@ class TestEloEstimator:
     estimator = EloEstimator(k_factor=20, default_init_rating=1200)
 
     def test_transform_raises(self):
-        with pytest.raises(ValueError, match="X must be a pandas DataFrame."):
+        with pytest.raises(TypeError, match="Expected pandas-like dataframe, Polars dataframe, or Polars lazyframe"):
             self.estimator.fit(1)
 
         df = pd.DataFrame(
-            columns=["entity_1", "entity_2", "score"],
+            columns=["t", "entity_1", "entity_2", "score"],
             index=[3, 2, 1],
         )
-        with pytest.raises(ValueError, match="Index must be sorted."):
+        with pytest.raises(ValueError, match="DataFrame must be sorted by date."):
             self.estimator.fit(df)
 
     def test_transform(self):
         df = pd.DataFrame(
             data=[
-                ("A", "B", 1),
-                ("A", "C", 1),
-                ("B", "C", 0),
-                ("C", "A", 0),
-                ("C", "B", 1),
+                (1, "A", "B", 1),
+                (2, "A", "C", 1),
+                (3, "B", "C", 0),
+                (4, "C", "A", 0),
+                (4, "C", "B", 1),
             ],
-            columns=["entity_1", "entity_2", "score"],
-            index=[1, 2, 3, 4, 4],
+            columns=["t", "entity_1", "entity_2", "score"],
         )
 
         expected_arr = np.array([0.5, 0.51, 0.5, 0.47, 0.53])
@@ -258,14 +257,13 @@ class TestEloEstimator:
         )
         df = pd.DataFrame(
             data=[
-                ("A", "B", 1, 1),
-                ("A", "C", 1, 1),
-                ("B", "C", 0, 0),
-                ("C", "A", 0, 0),
-                ("C", "B", 1, 1),
+                (1, "A", "B", 1, 1),
+                (2, "A", "C", 1, 1),
+                (3, "B", "C", 0, 0),
+                (4, "C", "A", 0, 0),
+                (4, "C", "B", 1, 1),
             ],
-            columns=["entity_1", "entity_2", "score", "home"],
-            index=[1, 2, 3, 4, 4],
+            columns=["t", "entity_1", "entity_2", "score", "home"],
         )
 
         expected_arr = np.array([0.5, 0.52, 0.5, 0.47, 0.53])
@@ -294,14 +292,13 @@ class TestEloEstimator:
         )
         df = pd.DataFrame(
             data=[
-                ("A", "B", 1, 1),
-                ("A", "C", 1, 1),
-                ("B", "C", 0, 0),
-                ("C", "A", 0, 0),
-                ("C", "B", 1, 1),
+                (1, "A", "B", 1, 1),
+                (2, "A", "C", 1, 1),
+                (3, "B", "C", 0, 0),
+                (4, "C", "A", 0, 0),
+                (4, "C", "B", 1, 1),
             ],
-            columns=["entity_1", "entity_2", "score", "home"],
-            index=[1, 2, 3, 4, 4],
+            columns=["t", "entity_1", "entity_2", "score", "home"],
         )
 
         expected_arr = np.array([0.5, 0.515, 0.4996, 0.4721, 0.5301])
@@ -327,27 +324,26 @@ class TestPoissonEloEstimator:
     estimator = PoissonEloEstimator(k_factor=20, default_init_rating=1200)
 
     def test_transform_raises(self):
-        with pytest.raises(ValueError, match="X must be a pandas DataFrame."):
+        with pytest.raises(TypeError, match="Expected pandas-like dataframe, Polars dataframe, or Polars lazyframe"):
             self.estimator.fit(1)
 
         df = pd.DataFrame(
-            columns=["entity_1", "entity_2", "score"],
+            columns=["t", "entity_1", "entity_2", "score"],
             index=[3, 2, 1],
         )
-        with pytest.raises(ValueError, match="Index must be sorted."):
+        with pytest.raises(ValueError, match="DataFrame must be sorted by date."):
             self.estimator.fit(df)
 
     def test_transform(self):
         df = pd.DataFrame(
             data=[
-                ("A", "B", 1),
-                ("A", "C", 2),
-                ("B", "C", 0),
-                ("C", "A", 0),
-                ("C", "B", 4),
+                (1, "A", "B", 1),
+                (2, "A", "C", 2),
+                (3, "B", "C", 0),
+                (4, "C", "A", 0),
+                (4, "C", "B", 4),
             ],
-            columns=["entity_1", "entity_2", "score"],
-            index=[1, 2, 3, 4, 4],
+            columns=["t", "entity_1", "entity_2", "score"],
         )
 
         expected_arr = np.array([1.0, 1.0, 1.122, 0.9039, 1.154])
@@ -375,14 +371,13 @@ class TestPoissonEloEstimator:
         )
         df = pd.DataFrame(
             data=[
-                ("A", "B", 1, 1),
-                ("A", "C", 2, 1),
-                ("B", "C", 0, 0),
-                ("C", "A", 0, 1),
-                ("C", "B", 4, 1),
+                (1, "A", "B", 1, 1),
+                (2, "A", "C", 2, 1),
+                (3, "B", "C", 0, 0),
+                (4, "C", "A", 0, 1),
+                (4, "C", "B", 4, 1),
             ],
-            columns=["entity_1", "entity_2", "score", "home"],
-            index=[1, 2, 3, 4, 4],
+            columns=["t", "entity_1", "entity_2", "score", "home"],
         )
 
         expected_arr = np.array([1.0, 1.0, 1.122, 0.9091, 1.1606])
@@ -411,14 +406,13 @@ class TestPoissonEloEstimator:
         )
         df = pd.DataFrame(
             data=[
-                ("A", "B", 1, 1),
-                ("A", "C", 2, 1),
-                ("B", "C", 0, 0),
-                ("C", "A", 0, 1),
-                ("C", "B", 4, 1),
+                (1, "A", "B", 1, 1),
+                (2, "A", "C", 2, 1),
+                (3, "B", "C", 0, 0),
+                (4, "C", "A", 0, 1),
+                (4, "C", "B", 4, 1),
             ],
-            columns=["entity_1", "entity_2", "score", "home"],
-            index=[1, 2, 3, 4, 4],
+            columns=["t", "entity_1", "entity_2", "score", "home"],
         )
 
         expected_arr = np.array([1.0, 1.0, 1.122, 0.908, 1.1593])
