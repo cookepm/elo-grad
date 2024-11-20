@@ -7,21 +7,21 @@
 as logistic regression with stochastic gradient descent
 (see [Elo as Logistic Regression](intro.md) for a walkthrough)
 to offer a collection of extensions to the rating system.
-All models are `narwhals`
-(for dataframe libraries with [full API support](https://narwhals-dev.github.io/narwhals/))
-and `scikit-learn` compatible.
+All rating systems are `narwhals` compatible for dataframe libraries with 
+[full API support](https://narwhals-dev.github.io/narwhals/).
 
 ## :sparkles: Features
 
 - Standard Elo rating system for binary outcomes.
-    - `narwhals` and `scikit-learn` compatible.
-    - Does not support draws.
+    - `narwhals` compatible.
+    - A `scikit-learn` compatible implementation is available in the `sklearn` submodule.
     - See [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data and `polars`.
 - Elo rating system for binary outcomes with additional regressors, *e.g.* home advantage.
     - L1 and L2 regularisation supported for additional regressors (see [Regularisation](https://cookepm.github.io/elo-grad/feature_ref/regularisation/)). 
     - See [Additional Regressors](https://cookepm.github.io/elo-grad/feature_ref/additional_regressors/) for the theory and [`examples/nba.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/nba.ipynb) for an example using NBA data and `polars`.
 - Elo rating system for count data based on Poisson regression.
-    - `narwhals` and `scikit-learn` compatible.
+    - `narwhals` compatible.
+    - A `scikit-learn` compatible implementation is available in the `sklearn` submodule.
     - See [Poisson Elo](https://cookepm.github.io/elo-grad/feature_ref/poisson.md) for the theory and [`examples/football.ipynb`](https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb) for an example using Premier League football data and `pandas`.
 
 ## :book: Installation
@@ -29,6 +29,10 @@ and `scikit-learn` compatible.
 You can install `elo-grad` with:
 ```bash
 pip install elo-grad
+```
+For the `scikit-learn` compatible rating systems, the `sklearn` optional dependencies must be installed as:
+```bash
+pip install elo-grad[sklearn]
 ```
 
 ## :zap: Quick Start

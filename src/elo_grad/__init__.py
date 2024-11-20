@@ -5,22 +5,18 @@ from importlib.metadata import version
 
 from array import array
 from collections import defaultdict
-from typing import Tuple, Optional, Dict, List, Callable, Generator, Type, Any
+from typing import Tuple, Optional, Dict, List, Generator, Type, Any
 
 import math
 import narwhals as nw
-from sklearn.base import BaseEstimator
-from sklearn.metrics import log_loss, mean_poisson_deviance
 
 from .plot import HistoryPlotterMixin
 
 __all__ = [
-    "ClassifierRatingSystemMixin",
     "EloEstimator",
     "LogisticRegression",
     "PoissonEloEstimator",
     "PoissonRegression",
-    "RegressionRatingSystemMixin",
     "Regressor",
     "SGDOptimizer",
 ]
@@ -227,11 +223,8 @@ class SGDOptimizer(Optimizer):
 class RatingSystemMixin(abc.ABC):
 
     @abc.abstractmethod
-    def score(self, X, y, sample_weight=None): ...
-
-    def _more_tags(self):
-        return {"requires_y": False}
-
+    def predict(self, X):
+        ...
 
 class ClassifierRatingSystemMixin(RatingSystemMixin):
     """
@@ -243,33 +236,6 @@ class ClassifierRatingSystemMixin(RatingSystemMixin):
     - `score` method that default to :func:`~sklearn.metrics.log_loss`.
     - enforce that `fit` does not require `y` to be passed through the `requires_y` tag.
     """
-
-    _estimator_type = "classifier"
-    classes_ = [[0, 1]]
-
-    def score(self, X, y, sample_weight=None):
-        """
-        Return the log-loss on the given test data and labels.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Test samples.
-
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            True labels for `X`.
-
-        sample_weight : array-like of shape (n_samples,), default=None
-            Sample weights.
-
-        Returns
-        -------
-        score : float
-            Log-loss of ``self.predict_proba(X)[:, 1]`` w.r.t. `y`.
-        """
-        return log_loss(
-            y, self.predict_proba(X)[:, 1], sample_weight=sample_weight
-        )
 
     def predict_proba(self, X):
         pred_proba = self._transform(X, return_expected_score=True)
@@ -297,37 +263,11 @@ class RegressionRatingSystemMixin(RatingSystemMixin):
     - enforce that `fit` does not require `y` to be passed through the `requires_y` tag.
     """
 
-    _estimator_type = "regressor"
-
-    def score(self, X, y, sample_weight=None):
-        """
-        Return the mean Poisson deviance on the given test data.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Test samples.
-
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            True labels for `X`.
-
-        sample_weight : array-like of shape (n_samples,), default=None
-            Sample weights.
-
-        Returns
-        -------
-        score : float
-            Mean Poisson deviance of ``self.predict(X)`` w.r.t. `y`.
-        """
-        return mean_poisson_deviance(
-            y, self.predict(X), sample_weight=sample_weight
-        )
-
     def predict(self, X):
         return self._transform(X, return_expected_score=True)  # type:ignore
 
 
-class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
+class BaseEloEstimator(HistoryPlotterMixin):
     """
     Elo rating system classifier.
 
@@ -438,34 +378,17 @@ class BaseEloEstimator(HistoryPlotterMixin, BaseEstimator):
         self.track_rating_history: bool = track_rating_history
         self.rating_history: List[Tuple[Optional[int], float]] = defaultdict(list)  # type:ignore
 
-    @staticmethod
-    def _reinitialize_rating_system(method: Callable):
+    def reinitialize(self) -> None:
         """
-        Decorator to reinitialize the rating system after parameter changes.
+        Reinitialize the rating system after parameter changes.
         Helpful when performing a grid search.
-
-        Parameters
-        ----------
-        method : Callable
-            Method to decorate
         """
-
-        def wrapper(self, **params):
-            result = method(self, **params)
-            self.model = self.model_type(
-                beta=self.beta,
-                default_init_rating=self.default_init_rating,
-                init_ratings=self.init_ratings,
-            )
-            self.optimizer = SGDOptimizer(k_factor=self.k_factor, additional_regressors=self.additional_regressors)
-
-            return result
-
-        return wrapper
-
-    @_reinitialize_rating_system
-    def set_params(self, **params):
-        return super().set_params(**params)
+        self.model = self.model_type(
+            beta=self.beta,
+            default_init_rating=self.default_init_rating,
+            init_ratings=self.init_ratings,
+        )
+        self.optimizer = SGDOptimizer(k_factor=self.k_factor, additional_regressors=self.additional_regressors)
 
     def _update_ratings(self, t: int, rating_deltas: Dict[str, float]) -> None:
         for entity in rating_deltas:
@@ -595,8 +518,8 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
 
     def __init__(
         self,
-        k_factor: float = 20,
-        default_init_rating: float = 1200,
+        k_factor: float,
+        default_init_rating: float,
         beta: float = 200,
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
@@ -645,7 +568,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
 
 class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
     """
-    Poisson Elo rating system classifier.
+    Poisson Elo rating system.
 
     Attributes
     ----------
@@ -690,8 +613,8 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
 
     def __init__(
         self,
-        k_factor: float = 20,
-        default_init_rating: float = 1200,
+        k_factor: float,
+        default_init_rating: float,
         beta: float = 200,
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
