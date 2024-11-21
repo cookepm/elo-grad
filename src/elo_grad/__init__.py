@@ -402,14 +402,14 @@ class BaseEloEstimator(HistoryPlotterMixin):
             self.rating_history[k].append(v)  # type:ignore
 
     def _transform(self, X, return_expected_score):
-        df: nw.DataFrame = nw.from_native(X)
+        df: nw.DataFrame = nw.from_native(X).select(self.columns)
         native_namespace: Any = nw.get_native_namespace(df)
-        df = df.select(self.columns)
 
         if not df[self.date_col].is_sorted(descending=False):
             raise ValueError("DataFrame must be sorted by date.")
-        current_ix: int = df[self.date_col].item(0)
+        current_date: int = df[self.date_col].item(0)
 
+        date: int = 0
         additional_regressor_flag: bool = len(self.additional_regressors) > 0
         additional_regressor_contrib: float = 0.0
         additional_regressor_values: Optional[Tuple[float, ...]] = None
@@ -417,13 +417,13 @@ class BaseEloEstimator(HistoryPlotterMixin):
         rating_deltas: Dict[str, float] = defaultdict(float)
         for row in df.iter_rows(named=False, buffer_size=512):
             if additional_regressor_flag:
-                ix, entity_1, entity_2, score, *additional_regressor_values = row
+                date, entity_1, entity_2, score, *additional_regressor_values = row
             else:
-                ix, entity_1, entity_2, score = row
+                date, entity_1, entity_2, score = row
 
-            if ix != current_ix:
-                self._update_ratings(ix, rating_deltas)
-                current_ix, rating_deltas = ix, defaultdict(float)
+            if date != current_date:
+                self._update_ratings(date, rating_deltas)
+                current_date, rating_deltas = date, defaultdict(float)
                 if self.track_rating_history:
                     self.record_ratings()
 
@@ -456,7 +456,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
                 for r in self.additional_regressors:
                     rating_deltas[r.name] += next(_rating_deltas)
 
-        self._update_ratings(ix, rating_deltas)
+        self._update_ratings(date, rating_deltas)
         if self.track_rating_history:
             self.record_ratings()
 
