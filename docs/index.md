@@ -80,7 +80,7 @@ In rough order, things we want to add are:
 - Interaction terms
 - Other optimizers, e.g. momentum
 - Extend plotting support, e.g. plotly
-- Support for handling correlation in scores
+- Support hierarchical matches, e.g. tennis matches with sets and games
 - Explore any ways we can approximate standard errors for the ratings
 
 ## :blue_book: References
