@@ -41,6 +41,7 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
+    "jupytext>=1.16.4",
     "mkdocs-material>=9.5.42",
     "mkdocstrings-python>=1.12.2",
     "pre-commit>=4.0.1",

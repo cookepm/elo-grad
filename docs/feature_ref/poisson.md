@@ -41,7 +41,7 @@ $$
 e^{\mathbf{w}\cdot x}.
 \end{equation}
 $$
-We have not included an intercept.
+We have not included an intercept although this can easily be added using an [additional regressor](./additional_regressors.md) (see the [example](./poisson.md#example)).
 
 Suppose each observation corresponds to the number of points/goals scored in a given interval between two of $n$ entities.
 We can define two ratings for each entity -
@@ -173,11 +173,12 @@ including details of how data can be pre-processed to pass to the rating system 
 from elo_grad import PoissonEloEstimator, Regressor
 
 # Input DataFrame with sorted index of Unix timestamps
-# and columns entity_1_attacking | entity_2_defensive | score | home
+# and columns entity_1_attacking | entity_2_defensive | score | home | intercept
 # where score is the number of points/goals scored
-# by entity 1 against entity 2.
-# In all games, entity_1 has home
-# advantage, so home = 1 for all rows.
+# by entity 1 against entity 2 and home is a Boolean flag indicating home advantage.
+# intercept is a column with all 1s which represents the mean number of goals
+# when entities are evenly matched and there is no home advantage.
+intercept_col = "intercept"
 home_col = "home"
 df = ...
 estimator = PoissonEloEstimator(
@@ -186,9 +187,9 @@ estimator = PoissonEloEstimator(
     entity_cols=("entity_1_attacking", "entity_2_defensive"),
     score_col="result",
     # Set the initial rating for home advantage to 0
-    init_ratings={home_col: (None, 0)},  
-    # Set k-factor/step-size to 1 for the home advantage regressor
-    additional_regressors=[Regressor(name=home_col, k_factor=1)],
+    init_ratings={intercept_col: (None, 0), home_col: (None, 0)},  
+    # Set k-factor/step-size to 1 for the both the mean and home advantage regressor
+    additional_regressors=[Regressor(name=intercept_col, k_factor=1), Regressor(name=home_col, k_factor=1)],
 )
 # Get expected scores
 expected_scores = estimator.predict(df)
