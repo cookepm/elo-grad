@@ -76,12 +76,11 @@ ratings = estimator.model.ratings
 In rough order, things we want to add are:
 
 - Head-to-head ratings
-- Skellam model support
+- Bivariate Poisson model support
 - Interaction terms
 - Other optimizers, e.g. momentum
 - Extend plotting support, e.g. plotly
 - Support hierarchical matches, e.g. tennis matches with sets and games
-- Explore any ways we can approximate standard errors for the ratings
 
 ## :blue_book: References
 
