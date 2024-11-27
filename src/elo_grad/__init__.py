@@ -55,7 +55,7 @@ class Regressor:
             raise ValueError("Penalty must be None, 'l1' or 'l2'.")
 
 
-class Model(abc.ABC):
+class BaseModel(abc.ABC):
 
     def __init__(
         self,
@@ -70,6 +70,9 @@ class Model(abc.ABC):
         self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
         if self.init_ratings is not None:
             self.ratings = self.ratings | self.init_ratings
+
+
+class UnivariateModel(BaseModel, abc.ABC):
 
     @abc.abstractmethod
     def calculate_gradient(self, y: int, *args) -> float:
@@ -88,13 +91,13 @@ class Optimizer(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _get_penalty(cls, model: Model, regressor: Regressor) -> float:
+    def _get_penalty(cls, model: UnivariateModel, regressor: Regressor) -> float:
         ...
 
     @abc.abstractmethod
     def calculate_update_step(
         self,
-        model: Model,
+        model: UnivariateModel,
         y: int,
         entity_1: str,
         entity_2: str,
@@ -104,7 +107,7 @@ class Optimizer(abc.ABC):
         ...
 
 
-class LogisticRegression(Model):
+class LogisticRegression(UnivariateModel):
 
     def __init__(
         self,
@@ -134,7 +137,7 @@ class LogisticRegression(Model):
         return 1 / (1 + math.pow(10, -sum(args) / (2 * self.beta)))
 
 
-class PoissonRegression(Model):
+class PoissonRegression(UnivariateModel):
 
     def __init__(
         self,
@@ -178,7 +181,7 @@ class SGDOptimizer(Optimizer):
             )
 
     @classmethod
-    def _get_penalty(cls, model: Model, regressor: Regressor) -> float:
+    def _get_penalty(cls, model: UnivariateModel, regressor: Regressor) -> float:
         match regressor.penalty:
             case "l1":
                 return regressor.lambda_reg * math.copysign(1, model.ratings[regressor.name][1])  # type:ignore
@@ -189,7 +192,7 @@ class SGDOptimizer(Optimizer):
 
     def calculate_update_step(
         self,
-        model: Model,
+        model: UnivariateModel,
         y: int,
         entity_1: str,
         entity_2: str,
@@ -225,6 +228,7 @@ class RatingSystemMixin(abc.ABC):
     @abc.abstractmethod
     def predict(self, X):
         ...
+
 
 class ClassifierRatingSystemMixin(RatingSystemMixin):
     """
@@ -273,7 +277,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
 
     Attributes
     ----------
-    model_type : Type[Model]
+    model_type : Type[UnivariateModel]
         Base model class type.
     beta : float
         Normalization factor for ratings when computing expected score.
@@ -287,7 +291,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    model : Model
+    model : UnivariateModel
         Underlying statistical model.
     optimizer : Optimizer
         Optimizer to update the model.
@@ -318,7 +322,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
 
     def __init__(
         self,
-        model_type: Type[Model],
+        model_type: Type[UnivariateModel],
         k_factor: float,
         default_init_rating: float,
         beta: float,
@@ -332,7 +336,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         """
         Parameters
         ----------
-        model_type : Type[Model]
+        model_type : Type[UnivariateModel]
             Base model class type.
         k_factor : float
             Elo K-factor/step-size for gradient descent for the entities.
@@ -361,8 +365,8 @@ class BaseEloEstimator(HistoryPlotterMixin):
         self.beta: float = beta
         self.default_init_rating: float = default_init_rating
         self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
-        self.model_type: Type[Model] = model_type
-        self.model: Model = model_type(
+        self.model_type: Type[UnivariateModel] = model_type
+        self.model: UnivariateModel = model_type(
             beta=beta,
             default_init_rating=default_init_rating,
             init_ratings=init_ratings,
@@ -487,7 +491,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    model : Model
+    model : UnivariateModel
         Underlying statistical model.
     optimizer : Optimizer
         Optimizer to update the model.
@@ -584,7 +588,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    model : Model
+    model : UnivariateModel
         Underlying statistical model.
     optimizer : Optimizer
         Optimizer to update the model.
