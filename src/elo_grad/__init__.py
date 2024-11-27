@@ -109,14 +109,6 @@ class Optimizer(abc.ABC):
 
 class LogisticRegression(UnivariateModel):
 
-    def __init__(
-        self,
-        beta: float,
-        default_init_rating: float,
-        init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]],
-    ) -> None:
-        super().__init__(beta, default_init_rating, init_ratings)
-
     def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
         if y not in {0, 1}:
             raise ValueError("Invalid score value %s", y)
@@ -138,14 +130,6 @@ class LogisticRegression(UnivariateModel):
 
 
 class PoissonRegression(UnivariateModel):
-
-    def __init__(
-        self,
-        beta: float,
-        default_init_rating: float,
-        init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]],
-    ) -> None:
-        super().__init__(beta, default_init_rating, init_ratings)
 
     def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
         if not isinstance(y, int):
