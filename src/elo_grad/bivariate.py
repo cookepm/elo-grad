@@ -39,7 +39,7 @@ class BivariateOptimizer(abc.ABC):
         y: Tuple[int, int],
         entity_1: str,
         entity_2: str,
-        additional_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[float, ...]],
         params: Optional[Tuple[float, ...]],
     ) -> Generator[Tuple[float, ...], None, None]:
         ...

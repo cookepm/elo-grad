@@ -101,7 +101,7 @@ class Optimizer(abc.ABC):
         y: int,
         entity_1: str,
         entity_2: str,
-        additional_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[float, ...]],
         expected_score: Optional[float],
     ) -> Generator[float, None, None]:
         ...
@@ -153,15 +153,15 @@ class PoissonRegression(UnivariateModel):
 
 class SGDOptimizer(Optimizer):
 
-    def __init__(self, k_factor: float, additional_regressors: Optional[List[Regressor]]) -> None:
+    def __init__(self, k_factor: float, regressors: Optional[List[Regressor]]) -> None:
         self.k_factor: float = k_factor
-        self.additional_regressors: Optional[List[Regressor]] = additional_regressors
-        if additional_regressors is None:
+        self.regressors: Optional[List[Regressor]] = regressors
+        if regressors is None:
             self.k_factor_vec: Tuple[float, ...] = (k_factor,)
         else:
             self.k_factor_vec = (
                 k_factor,
-                *(r.k_factor if r.k_factor is not None else k_factor for r in additional_regressors),
+                *(r.k_factor if r.k_factor is not None else k_factor for r in regressors),
             )
 
     @classmethod
@@ -180,30 +180,30 @@ class SGDOptimizer(Optimizer):
         y: int,
         entity_1: str,
         entity_2: str,
-        additional_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[float, ...]],
         expected_score: Optional[float],
     ) -> Generator[float, None, None]:
         if expected_score is not None:
             # If we already know the expected score, we shouldn't recalculate it
             entity_grad: float = model.calculate_gradient_from_expected_score(y, expected_score)
         else:
-            if self.additional_regressors is None:
-                additional_regressor_contrib: float = 0.0
+            if self.regressors is None:
+                regressor_contrib: float = 0.0
             else:
-                additional_regressor_contrib = sum(
+                regressor_contrib = sum(
                     model.ratings[r.name][1] * v  # type:ignore
-                    for r, v in zip(self.additional_regressors, additional_regressor_values)  # type:ignore
+                    for r, v in zip(self.regressors, regressor_values)  # type:ignore
                 )
             entity_grad = model.calculate_gradient(
                 y,
                 model.ratings[entity_1][1],
                 -model.ratings[entity_2][1],
-                additional_regressor_contrib,
+                regressor_contrib,
             )
 
         yield self.k_factor_vec[0] * entity_grad
-        if self.additional_regressors is not None:
-            for r, v in zip(self.additional_regressors, additional_regressor_values):  # type:ignore
+        if self.regressors is not None:
+            for r, v in zip(self.regressors, regressor_values):  # type:ignore
                  yield r.k_factor * ((v * entity_grad) - self._get_penalty(model, r))  # type:ignore
 
 
@@ -287,7 +287,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -314,7 +314,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         entity_cols: Tuple[str, str],
         score_col: str,
         date_col: str,
-        additional_regressors: Optional[List[Regressor]],
+        regressors: Optional[List[Regressor]],
         track_rating_history: bool,
     ) -> None:
         """
@@ -337,7 +337,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -355,13 +355,13 @@ class BaseEloEstimator(HistoryPlotterMixin):
             default_init_rating=default_init_rating,
             init_ratings=init_ratings,
         )
-        self.additional_regressors: List[Regressor] = additional_regressors if additional_regressors is not None else []
-        if additional_regressors is not None:
-            self.columns.extend([r.name for r in additional_regressors])
+        self.regressors: List[Regressor] = regressors if regressors is not None else []
+        if regressors is not None:
+            self.columns.extend([r.name for r in regressors])
         self.k_factor: float = k_factor
         self.optimizer: Optimizer = SGDOptimizer(
             k_factor=self.k_factor,
-            additional_regressors=self.additional_regressors,
+            regressors=self.regressors,
         )
         self.track_rating_history: bool = track_rating_history
         self.rating_history: List[Tuple[Optional[int], float]] = defaultdict(list)  # type:ignore
@@ -376,7 +376,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
             default_init_rating=self.default_init_rating,
             init_ratings=self.init_ratings,
         )
-        self.optimizer = SGDOptimizer(k_factor=self.k_factor, additional_regressors=self.additional_regressors)
+        self.optimizer = SGDOptimizer(k_factor=self.k_factor, regressors=self.regressors)
 
     def _update_ratings(self, t: int, rating_deltas: Dict[str, float]) -> None:
         for entity in rating_deltas:
@@ -398,14 +398,14 @@ class BaseEloEstimator(HistoryPlotterMixin):
             raise ValueError("DataFrame must be sorted by date.")
         current_ix: int = df[self.date_col].item(0)
 
-        additional_regressor_flag: bool = len(self.additional_regressors) > 0
-        additional_regressor_contrib: float = 0.0
-        additional_regressor_values: Optional[Tuple[float, ...]] = None
+        regressor_flag: bool = len(self.regressors) > 0
+        regressor_contrib: float = 0.0
+        regressor_values: Optional[Tuple[float, ...]] = None
         preds = array("f") if return_expected_score else None
         rating_deltas: Dict[str, float] = defaultdict(float)
         for row in df.iter_rows(named=False, buffer_size=512):
-            if additional_regressor_flag:
-                ix, entity_1, entity_2, score, *additional_regressor_values = row
+            if regressor_flag:
+                ix, entity_1, entity_2, score, *regressor_values = row
             else:
                 ix, entity_1, entity_2, score = row
 
@@ -415,16 +415,16 @@ class BaseEloEstimator(HistoryPlotterMixin):
                 if self.track_rating_history:
                     self.record_ratings()
 
-            if additional_regressor_flag:
-                additional_regressor_contrib = sum(
+            if regressor_flag:
+                regressor_contrib = sum(
                     self.model.ratings[k.name][1] * v  # type:ignore
-                    for k, v in zip(self.additional_regressors, additional_regressor_values)  # type:ignore
+                    for k, v in zip(self.regressors, regressor_values)  # type:ignore
                 )
 
             expected_score: float = self.model.calculate_expected_score(
                 self.model.ratings[entity_1][1],
                 -self.model.ratings[entity_2][1],
-                additional_regressor_contrib,
+                regressor_contrib,
             )
             if return_expected_score:
                 preds.append(expected_score)  # type:ignore
@@ -434,14 +434,14 @@ class BaseEloEstimator(HistoryPlotterMixin):
                 y=score,
                 entity_1=entity_1,
                 entity_2=entity_2,
-                additional_regressor_values=additional_regressor_values,
+                regressor_values=regressor_values,
                 expected_score=expected_score,
             )
             entity_update: float = next(_rating_deltas)
             rating_deltas[entity_1] += entity_update
             rating_deltas[entity_2] -= entity_update
-            if additional_regressor_flag:
-                for r in self.additional_regressors:
+            if regressor_flag:
+                for r in self.regressors:
                     rating_deltas[r.name] += next(_rating_deltas)
 
         self._update_ratings(ix, rating_deltas)
@@ -487,7 +487,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -513,7 +513,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
         date_col: str = "t",
-        additional_regressors: Optional[List[Regressor]] = None,
+        regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
         """
@@ -535,7 +535,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -549,7 +549,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
             entity_cols=entity_cols,
             score_col=score_col,
             date_col=date_col,
-            additional_regressors=additional_regressors,
+            regressors=regressors,
             track_rating_history=track_rating_history,
         )
 
@@ -584,7 +584,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -608,7 +608,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
         date_col: str = "t",
-        additional_regressors: Optional[List[Regressor]] = None,
+        regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
         """
@@ -630,7 +630,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -644,6 +644,6 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
             entity_cols=entity_cols,
             score_col=score_col,
             date_col=date_col,
-            additional_regressors=additional_regressors,
+            regressors=regressors,
             track_rating_history=track_rating_history,
         )
