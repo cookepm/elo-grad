@@ -90,12 +90,24 @@ class UnivariateModel(BaseModel, abc.ABC):
         ...
 
 
-class Optimizer(abc.ABC):
+class BaseOptimizer(abc.ABC):
+
+    def __init__(self, k_factor: float, regressors: Optional[List[Regressor]]) -> None:
+        self.k_factor: float = k_factor
+        self.regressors: Optional[List[Regressor]] = regressors
 
     @classmethod
-    @abc.abstractmethod
-    def _get_penalty(cls, model: UnivariateModel, regressor: Regressor) -> float:
-        ...
+    def _get_penalty(cls, model: BaseModel, regressor: Regressor) -> float:
+        match regressor.penalty:
+            case "l1":
+                return regressor.lambda_reg * math.copysign(1, model.ratings[regressor.name][1])  # type:ignore
+            case "l2":
+                return 2 * regressor.lambda_reg * model.ratings[regressor.name][1]  # type:ignore
+            case _:
+                return 0.0
+
+
+class UnivariateOptimizer(BaseOptimizer, abc.ABC):
 
     @abc.abstractmethod
     def calculate_update_step(
@@ -154,28 +166,7 @@ class PoissonRegression(UnivariateModel):
         return math.pow(10, sum(args) / (2 * self.beta))
 
 
-class SGDOptimizer(Optimizer):
-
-    def __init__(self, k_factor: float, regressors: Optional[List[Regressor]]) -> None:
-        self.k_factor: float = k_factor
-        self.regressors: Optional[List[Regressor]] = regressors
-        if regressors is None:
-            self.k_factor_vec: Tuple[float, ...] = (k_factor,)
-        else:
-            self.k_factor_vec = (
-                k_factor,
-                *(r.k_factor if r.k_factor is not None else k_factor for r in regressors),
-            )
-
-    @classmethod
-    def _get_penalty(cls, model: UnivariateModel, regressor: Regressor) -> float:
-        match regressor.penalty:
-            case "l1":
-                return regressor.lambda_reg * math.copysign(1, model.ratings[regressor.name][1])  # type:ignore
-            case "l2":
-                return 2 * regressor.lambda_reg * model.ratings[regressor.name][1]  # type:ignore
-            case _:
-                return 0.0
+class SGDOptimizer(UnivariateOptimizer):
 
     def calculate_update_step(
         self,
@@ -204,7 +195,7 @@ class SGDOptimizer(Optimizer):
                 regressor_contrib,
             )
 
-        yield self.k_factor_vec[0] * entity_grad
+        yield self.k_factor * entity_grad
         if self.regressors is not None:
             for r, v in zip(self.regressors, regressor_values):  # type:ignore
                  yield r.k_factor * ((v * entity_grad) - self._get_penalty(model, r))  # type:ignore
@@ -280,7 +271,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         Elo K-factor/step-size for gradient descent.
     model : UnivariateModel
         Underlying statistical model.
-    optimizer : Optimizer
+    optimizer : UnivariateOptimizer
         Optimizer to update the model.
     rating_history : List[Tuple[Optional[int], float]]
         Historical ratings of entities (if track_rating_history is True).
@@ -362,7 +353,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         if regressors is not None:
             self.columns.extend([r.name for r in regressors])
         self.k_factor: float = k_factor
-        self.optimizer: Optimizer = SGDOptimizer(
+        self.optimizer: UnivariateOptimizer = SGDOptimizer(
             k_factor=self.k_factor,
             regressors=self.regressors,
         )
@@ -480,7 +471,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         Elo K-factor/step-size for gradient descent.
     model : UnivariateModel
         Underlying statistical model.
-    optimizer : Optimizer
+    optimizer : UnivariateOptimizer
         Optimizer to update the model.
     rating_history : List[Tuple[Optional[int], float]]
         Historical ratings of entities (if track_rating_history is True).
@@ -577,7 +568,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         Elo K-factor/step-size for gradient descent.
     model : UnivariateModel
         Underlying statistical model.
-    optimizer : Optimizer
+    optimizer : UnivariateOptimizer
         Optimizer to update the model.
     rating_history : List[Tuple[Optional[int], float]]
         Historical ratings of entities (if track_rating_history is True).

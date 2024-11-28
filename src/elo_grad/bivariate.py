@@ -3,9 +3,9 @@ from collections import defaultdict
 
 import math
 from functools import lru_cache
-from typing import Tuple, Optional, Generator, Dict
+from typing import Tuple, Optional, Generator, Dict, List
 
-from . import BaseModel, Regressor
+from . import BaseModel, BaseOptimizer, Regressor
 
 
 class BivariateModel(BaseModel, abc.ABC):
@@ -41,12 +41,16 @@ class BivariateModel(BaseModel, abc.ABC):
         ...
 
 
-class BivariateOptimizer(abc.ABC):
+class BivariateOptimizer(BaseOptimizer, abc.ABC):
 
-    @classmethod
-    @abc.abstractmethod
-    def _get_penalty(cls, model: BivariateModel, regressor: Regressor) -> float:
-        ...
+    def __init__(
+        self,
+        k_factor: float,
+        regressors: Optional[List[Regressor]],
+        corr_regressors: Optional[List[Regressor]],
+    ):
+        super().__init__(k_factor, regressors)
+        self.corr_regressors: Optional[List[Regressor]] = corr_regressors
 
     @abc.abstractmethod
     def calculate_update_step(
@@ -56,6 +60,7 @@ class BivariateOptimizer(abc.ABC):
         entity_1: str,
         entity_2: str,
         regressor_values: Optional[Tuple[float, ...]],
+        corr_regressor_values: Optional[Tuple[float, ...]],
         params: Optional[Tuple[float, ...]],
     ) -> Generator[Tuple[float, ...], None, None]:
         ...
@@ -122,3 +127,67 @@ class BivariatePoissonRegression(BivariateModel):
             params[0] + params[2],
             params[1] + params[2],
         )
+
+
+class BivariateSGDOptimizer(BivariateOptimizer):
+
+    def calculate_update_step(
+        self,
+        model: BivariateModel,
+        y: Tuple[int, int],
+        entity_1: str,
+        entity_2: str,
+        regressor_values: Optional[Tuple[float, ...]],
+        corr_regressor_values: Optional[Tuple[float, ...]],
+        params: Optional[Tuple[float, ...]],
+    ) -> Generator[Tuple[float, ...], None, None]:
+        if params is not None:
+            # If we already know the params, we shouldn't recalculate them
+            entity_grad: Tuple[float, ...] = model.calculate_gradient_from_params(y, params)
+        else:
+            regressor_contrib_1, regressor_contrib_2 = 0.0, 0.0
+            if self.regressors is not None:
+                regressor_contribs: Generator[Tuple[float, float], None, None] = (
+                    (model.ratings[r.name][1] * v, model.ratings[r.name][1] * (1 - v))
+                    for r, v in zip(self.regressors, regressor_values)  # type:ignore
+                )
+                for c1, c2 in regressor_contribs:
+                    regressor_contrib_1 += c1
+                    regressor_contrib_2 += c2
+
+            corr_regressor_contrib: float = 0.0
+            if self.corr_regressors is not None:
+                corr_regressor_contrib = sum(
+                    model.ratings[r.name][1] * v for r, v in zip(self.corr_regressors, corr_regressor_values)  # type:ignore
+                )
+
+            entity_grad = model.calculate_gradient(
+                y,
+                (
+                    model.ratings[entity_1][1],
+                    -model.ratings[entity_2][2],  # type:ignore
+                    regressor_contrib_1,
+                ),
+                (
+                    model.ratings[entity_2][1],
+                    -model.ratings[entity_1][2],  # type:ignore
+                    regressor_contrib_2,
+                ),
+                (corr_regressor_contrib,),  # To handle correlation
+            )
+
+        yield tuple(self.k_factor * g for g in entity_grad)
+        if self.regressors is not None:
+            for r, v in zip(self.regressors, regressor_values):  # type:ignore
+                 yield tuple(
+                     r.k_factor * ((v * entity_grad[0]) - self._get_penalty(model, r)),  # type:ignore
+                     r.k_factor * (((1 - v) * entity_grad[1]) - self._get_penalty(model, r)),  # type:ignore
+                     0.0,  # type:ignore
+                 )
+        if self.corr_regressors is not None:
+            for r, v in zip(self.corr_regressors, corr_regressor_values):  # type:ignore
+                 yield tuple(
+                     0.0,  # type:ignore
+                     0.0,  # type:ignore
+                     r.k_factor * ((v * entity_grad[2]) - self._get_penalty(model, r)),  # type:ignore
+                 )
