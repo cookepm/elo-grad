@@ -1,12 +1,28 @@
 import abc
+from collections import defaultdict
+
 import math
 from functools import lru_cache
-from typing import Tuple, Optional, Generator
+from typing import Tuple, Optional, Generator, Dict
 
 from . import BaseModel, Regressor
 
 
 class BivariateModel(BaseModel, abc.ABC):
+
+    def __init__(
+        self,
+        beta: float,
+        default_init_rating: Tuple[float, float],
+        init_ratings: Optional[Dict[str, Tuple[Optional[int], float, Optional[float]]]] = None,
+    ) -> None:
+        super().__init__(beta)
+        self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float, Optional[float]]]] = init_ratings
+        self.ratings: Dict[str, Tuple[Optional[int], float, Optional[float]]] = defaultdict(  # type:ignore
+            lambda: (None, *default_init_rating)
+        )
+        if self.init_ratings is not None:
+            self.ratings = self.ratings | self.init_ratings
 
     @abc.abstractmethod
     def calculate_params(self, *args) -> Tuple[float, ...]:

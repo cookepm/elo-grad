@@ -57,22 +57,25 @@ class Regressor:
 
 class BaseModel(abc.ABC):
 
+    def __init__(self, beta: float) -> None:
+        self.beta: float = beta
+
+
+class UnivariateModel(BaseModel, abc.ABC):
+
     def __init__(
         self,
         beta: float,
         default_init_rating: float,
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
     ) -> None:
-        self.beta: float = beta
+        super().__init__(beta)
+        self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
         self.ratings: Dict[str, Tuple[Optional[int], float]] = defaultdict(
             lambda: (None, default_init_rating)
         )
-        self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
         if self.init_ratings is not None:
             self.ratings = self.ratings | self.init_ratings
-
-
-class UnivariateModel(BaseModel, abc.ABC):
 
     @abc.abstractmethod
     def calculate_gradient(self, y: int, *args) -> float:
