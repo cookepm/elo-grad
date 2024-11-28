@@ -57,13 +57,13 @@ from elo_grad import EloEstimator, Regressor
 # if entity_1 has home advantage.
 df = ...
 estimator = EloEstimator(
-    k_factor=20, 
-    default_init_rating=1200,
-    entity_cols=("player_1", "player_2"),
-    score_col="result",
-    date_col="t",
-    init_ratings=dict(home=(None, 0)),
-    additional_regressors=[Regressor(name='home', k_factor=0.1)],
+  k_factor=20,
+  default_init_rating=1200,
+  entity_cols=("player_1", "player_2"),
+  score_col="result",
+  date_col="t",
+  init_ratings=dict(home=(None, 0)),
+  regressors=[Regressor(name='home', k_factor=0.1)],
 )
 # Get expected scores
 expected_scores = estimator.predict_proba(df)
