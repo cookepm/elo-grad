@@ -92,9 +92,8 @@ class UnivariateModel(BaseModel, abc.ABC):
 
 class BaseOptimizer(abc.ABC):
 
-    def __init__(self, k_factor: float, regressors: Optional[List[Regressor]]) -> None:
+    def __init__(self, k_factor: float) -> None:
         self.k_factor: float = k_factor
-        self.regressors: Optional[List[Regressor]] = regressors
 
     @classmethod
     def _get_penalty(cls, model: BaseModel, regressor: Regressor) -> float:
@@ -108,6 +107,14 @@ class BaseOptimizer(abc.ABC):
 
 
 class UnivariateOptimizer(BaseOptimizer, abc.ABC):
+
+    def __init__(
+        self,
+        k_factor: float,
+        regressors: Optional[List[Regressor]],
+    ):
+        super().__init__(k_factor)
+        self.regressors: Optional[List[Regressor]] = regressors
 
     @abc.abstractmethod
     def calculate_update_step(
