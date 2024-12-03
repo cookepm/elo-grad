@@ -75,7 +75,7 @@ class TestSGDOptimizer:
             init_ratings=dict(entity_1=(None, 1500), entity_2=(None, 1600)),
             beta=200,
         )
-        opt_1 = SGDOptimizer(k_factor=32, additional_regressors=None)
+        opt_1 = SGDOptimizer(k_factor=32, regressors=None)
         updates_1 = opt_1.calculate_update_step(model_1, 1, "entity_1", "entity_2", None, None)
         entity_update_1 = next(updates_1)
         with pytest.raises(StopIteration):
@@ -88,7 +88,7 @@ class TestSGDOptimizer:
             init_ratings=dict(entity_2=(None, 1600)),
             beta=200,
         )
-        opt_2 = SGDOptimizer(k_factor=20, additional_regressors=None)
+        opt_2 = SGDOptimizer(k_factor=20, regressors=None)
         updates_2 = opt_2.calculate_update_step(model_2, 0, "entity_1", "entity_2", None, None)
         entity_update_2 = next(updates_2)
 
@@ -100,7 +100,7 @@ class TestSGDOptimizer:
             init_ratings=dict(entity_1=(None, 1500), entity_2=(None, 1600), home=(None, 10)),
             beta=200,
         )
-        opt_1 = SGDOptimizer(k_factor=32, additional_regressors=[Regressor(name="home", k_factor=1)])
+        opt_1 = SGDOptimizer(k_factor=32, regressors=[Regressor(name="home", k_factor=1)])
         updates_1 = opt_1.calculate_update_step(model_1, 1, "entity_1", "entity_2", (1,), None)
         entity_update_1 = next(updates_1)
         home_update_1 = next(updates_1)
@@ -115,7 +115,7 @@ class TestSGDOptimizer:
             init_ratings=dict(entity_2=(None, 1600), home=(None, 20)),
             beta=200,
         )
-        opt_2 = SGDOptimizer(k_factor=20, additional_regressors=[Regressor(name="regressor_1", k_factor=1)])
+        opt_2 = SGDOptimizer(k_factor=20, regressors=[Regressor(name="regressor_1", k_factor=1)])
         updates_2 = opt_2.calculate_update_step(model_2, 0, "entity_1", "entity_2", (0,), None)
         entity_update_2 = next(updates_2)
         home_update_2 = next(updates_2)
@@ -131,14 +131,14 @@ class TestSGDOptimizer:
         )
         opt_1 = SGDOptimizer(
             k_factor=32,
-            additional_regressors=[Regressor(name="home", k_factor=1, penalty="l1", lambda_reg=0.1)],
+            regressors=[Regressor(name="home", k_factor=1, penalty="l1", lambda_reg=0.1)],
         )
         updates_1 = opt_1.calculate_update_step(
             model=model,
             y=1,
             entity_1="entity_1",
             entity_2="entity_2",
-            additional_regressor_values=(1,),
+            regressor_values=(1,),
             expected_score=None,
         )
         entity_update_1 = next(updates_1)
@@ -152,14 +152,14 @@ class TestSGDOptimizer:
 
         opt_2 = SGDOptimizer(
             k_factor=32,
-            additional_regressors=[Regressor(name="home", k_factor=1, penalty="l2", lambda_reg=0.1)],
+            regressors=[Regressor(name="home", k_factor=1, penalty="l2", lambda_reg=0.1)],
         )
         updates_2 = opt_2.calculate_update_step(
             model=model,
             y=1,
             entity_1="entity_1",
             entity_2="entity_2",
-            additional_regressor_values=(1,),
+            regressor_values=(1,),
             expected_score=None,
         )
         entity_update_2 = next(updates_2)
@@ -173,14 +173,14 @@ class TestSGDOptimizer:
 
         opt_3 = SGDOptimizer(
             k_factor=32,
-            additional_regressors=[Regressor(name="home", k_factor=1, penalty="l2", lambda_reg=0.0)],
+            regressors=[Regressor(name="home", k_factor=1, penalty="l2", lambda_reg=0.0)],
         )
         updates_3 = opt_3.calculate_update_step(
             model=model,
             y=1,
             entity_1="entity_1",
             entity_2="entity_2",
-            additional_regressor_values=(1,),
+            regressor_values=(1,),
             expected_score=None,
         )
         entity_update_3 = next(updates_3)
@@ -198,7 +198,7 @@ class TestSGDOptimizer:
             init_ratings=None,
             beta=200,
         )
-        opt = SGDOptimizer(k_factor=20, additional_regressors=None)
+        opt = SGDOptimizer(k_factor=20, regressors=None)
         with pytest.raises(ValueError, match="Invalid score value"):
             next(
                 opt.calculate_update_step(model, -1, "entity_1", "entity_2", (0,), None)
@@ -253,7 +253,7 @@ class TestEloEstimator:
             k_factor=20,
             default_init_rating=1200,
             init_ratings=dict(home=(None, 0)),
-            additional_regressors=[Regressor(name="home", k_factor=1)],
+            regressors=[Regressor(name="home", k_factor=1)],
         )
         df = pd.DataFrame(
             data=[
@@ -288,7 +288,7 @@ class TestEloEstimator:
             k_factor=20,
             default_init_rating=1200,
             init_ratings=dict(home=(None, 0)),
-            additional_regressors=[Regressor(name="home", k_factor=1, penalty="l1", lambda_reg=0.1)],
+            regressors=[Regressor(name="home", k_factor=1, penalty="l1", lambda_reg=0.1)],
         )
         df = pd.DataFrame(
             data=[
@@ -367,7 +367,7 @@ class TestPoissonEloEstimator:
             k_factor=20,
             default_init_rating=1200,
             init_ratings=dict(home=(None, 0)),
-            additional_regressors=[Regressor(name="home", k_factor=1)],
+            regressors=[Regressor(name="home", k_factor=1)],
         )
         df = pd.DataFrame(
             data=[
@@ -402,7 +402,7 @@ class TestPoissonEloEstimator:
             k_factor=20,
             default_init_rating=1200,
             init_ratings=dict(home=(None, 0)),
-            additional_regressors=[Regressor(name="home", k_factor=1, penalty="l2", lambda_reg=0.1)],
+            regressors=[Regressor(name="home", k_factor=1, penalty="l2", lambda_reg=0.1)],
         )
         df = pd.DataFrame(
             data=[
