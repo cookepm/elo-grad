@@ -112,7 +112,7 @@ class BivariatePoissonRegression(BivariateModel):
 
     def calculate_gradient_from_params(self, y: Tuple[int, int], params: Tuple[float, ...]) -> Tuple[float, ...]:
         return tuple(
-            self._calculate_modified_y(y, params, i=i) - params[0] for i in range(2)
+            self._calculate_modified_y(y, params, i=i) - params[i] for i in range(2)
         )
 
     def calculate_gradient(self, y: Tuple[int, int], *args) -> Tuple[float, ...]:
