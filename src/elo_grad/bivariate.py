@@ -1,7 +1,7 @@
 import abc
-from collections import defaultdict
 
 import math
+from collections import defaultdict
 from functools import lru_cache
 from typing import Tuple, Optional, Generator, Dict, List
 
@@ -36,7 +36,7 @@ class BivariateModel(BaseModel, abc.ABC):
         self,
         y: Tuple[int, int],
         params: Tuple[float, float, float],
-    ) -> Tuple[float, float]:
+    ) -> Tuple[float, float, float]:
         ...
 
     @abc.abstractmethod
@@ -51,7 +51,7 @@ class BivariateModel(BaseModel, abc.ABC):
         self,
         y: Tuple[int, int],
         args: Tuple[Tuple[float, ...], Tuple[float, ...], Tuple[float, ...]],
-    ) -> Tuple[float, float]:
+    ) -> Tuple[float, float, float]:
         ...
 
 
@@ -60,11 +60,10 @@ class BivariateOptimizer(BaseOptimizer, abc.ABC):
     def __init__(
         self,
         k_factor: float,
-        regressors: Optional[List[Regressor]],
-        corr_regressors: Optional[List[Regressor]],
+        regressors: Optional[Tuple[Optional[List[Regressor]], Optional[List[Regressor]], Optional[List[Regressor]]]],
     ):
-        super().__init__(k_factor, regressors)
-        self.corr_regressors: Optional[List[Regressor]] = corr_regressors
+        super().__init__(k_factor)
+        self.regressors: Optional[Tuple[Optional[List[Regressor]], Optional[List[Regressor]], Optional[List[Regressor]]]] = regressors
 
     @abc.abstractmethod
     def calculate_update_step(
@@ -73,10 +72,9 @@ class BivariateOptimizer(BaseOptimizer, abc.ABC):
         y: Tuple[int, int],
         entity_1: str,
         entity_2: str,
-        regressor_values: Optional[Tuple[float, ...]],
-        corr_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[Optional[Tuple[float, ...]], Optional[Tuple[float, ...]], Optional[Tuple[float, ...]]]],
         params: Optional[Tuple[float, float, float]],
-    ) -> Generator[Tuple[float, ...], None, None]:
+    ) -> Generator[float, None, None]:
         ...
 
 
@@ -131,18 +129,18 @@ class BivariatePoissonRegression(BivariateModel):
         self,
         y: Tuple[int, int],
         params: Tuple[float, float, float],
-    ) -> Tuple[float, float]:
+    ) -> Tuple[float, float, float]:
         return tuple(  # type:ignore
-            self._calculate_modified_y(y, params, i=i) - params[i] for i in range(2)
+            self._calculate_modified_y(y, params, i=i) - params[i] for i in range(3)
         )
 
     def calculate_gradient(
         self,
         y: Tuple[int, int],
         args: Tuple[Tuple[float, ...], Tuple[float, ...], Tuple[float, ...]],
-    ) -> Tuple[float, float]:
+    ) -> Tuple[float, float, float]:
         params: Tuple[float, float, float] = self.calculate_params(args)
-        grad: Tuple[float, float] = self.calculate_gradient_from_params(y, params)
+        grad: Tuple[float, float, float] = self.calculate_gradient_from_params(y, params)
 
         return grad
 
@@ -165,19 +163,18 @@ class BivariateSGDOptimizer(BivariateOptimizer):
         y: Tuple[int, int],
         entity_1: str,
         entity_2: str,
-        regressor_values: Optional[Tuple[float, ...]],
-        corr_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[Optional[Tuple[float, ...]], Optional[Tuple[float, ...]], Optional[Tuple[float, ...]]]],
         params: Optional[Tuple[float, float, float]],
-    ) -> Generator[Tuple[float, ...], None, None]:
+    ) -> Generator[float, None, None]:
         if params is not None:
             # If we already know the params, we shouldn't recalculate them
-            entity_grad: Tuple[float, ...] = model.calculate_gradient_from_params(y, params)
+            entity_grad: Tuple[float, float, float] = model.calculate_gradient_from_params(y, params)
         else:
             regressor_contrib: Tuple[float, float, float] = (0.0, 0.0, 0.0)
             if self.regressors is not None:
                 regressor_contrib = tuple(  # type:ignore
                     sum(
-                        model.ratings[r.name][1] * v
+                        model.ratings[r.name][1] * v  # type: ignore
                         for r, v in zip(reg, reg_val)  # type:ignore
                     ) if reg is not None  # type:ignore
                     else 0.0
@@ -201,18 +198,14 @@ class BivariateSGDOptimizer(BivariateOptimizer):
                 )
             )
 
-        yield tuple(self.k_factor * g for g in entity_grad)
+        for i in range(2):
+            yield self.k_factor * entity_grad[i]
+            if self.regressors is not None:
+                if self.regressors[i] is not None:
+                    for r, v in zip(self.regressors[i], regressor_values[i]):  # type:ignore
+                        yield r.k_factor * ((v * entity_grad[i]) - self._get_penalty(model, r))  # type:ignore
+
         if self.regressors is not None:
-            for r, v in zip(self.regressors, regressor_values):  # type:ignore
-                 yield tuple(
-                     r.k_factor * ((v * entity_grad[0]) - self._get_penalty(model, r)),  # type:ignore
-                     r.k_factor * (((1 - v) * entity_grad[1]) - self._get_penalty(model, r)),  # type:ignore
-                     0.0,  # type:ignore
-                 )
-        if self.corr_regressors is not None:
-            for r, v in zip(self.corr_regressors, corr_regressor_values):  # type:ignore
-                 yield tuple(
-                     0.0,  # type:ignore
-                     0.0,  # type:ignore
-                     r.k_factor * ((v * entity_grad[2]) - self._get_penalty(model, r)),  # type:ignore
-                 )
+            if self.regressors[2] is not None:
+                for r, v in zip(self.regressors[2], regressor_values[2]):  # type:ignore
+                    yield r.k_factor * ((v * entity_grad[2]) - self._get_penalty(model, r))  # type:ignore
