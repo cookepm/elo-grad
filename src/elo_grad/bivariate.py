@@ -47,6 +47,10 @@ class BivariateModel(BaseModel, abc.ABC):
         ...
 
     @abc.abstractmethod
+    def calculate_expected_scores_from_params(self, params: Tuple[float, float, float]) -> Tuple[float, float]:
+        ...
+
+    @abc.abstractmethod
     def calculate_gradient(
         self,
         y: Tuple[int, int],
@@ -149,6 +153,9 @@ class BivariatePoissonRegression(BivariateModel):
         args: Tuple[Tuple[float, ...], Tuple[float, ...], Tuple[float, ...]],
     ) -> Tuple[float, float]:
         params = self.calculate_params(args)
+        return self.calculate_expected_scores_from_params(params)
+
+    def calculate_expected_scores_from_params(self, params: Tuple[float, float, float]) -> Tuple[float, float]:
         return (
             params[0] + params[2],
             params[1] + params[2],
