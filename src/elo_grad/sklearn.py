@@ -154,7 +154,7 @@ class SKEloEstimator(SKClassifierRatingSystemMixin, EloEstimator, SKBaseEstimato
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -180,7 +180,7 @@ class SKEloEstimator(SKClassifierRatingSystemMixin, EloEstimator, SKBaseEstimato
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
         date_col: str = "t",
-        additional_regressors: Optional[List[Regressor]] = None,
+        regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
         """
@@ -202,7 +202,7 @@ class SKEloEstimator(SKClassifierRatingSystemMixin, EloEstimator, SKBaseEstimato
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -215,7 +215,7 @@ class SKEloEstimator(SKClassifierRatingSystemMixin, EloEstimator, SKBaseEstimato
             entity_cols=entity_cols,
             score_col=score_col,
             date_col=date_col,
-            additional_regressors=additional_regressors,
+            regressors=regressors,
             track_rating_history=track_rating_history,
         )
 
@@ -250,7 +250,7 @@ class SKPoissonEloEstimator(SKRegressionRatingSystemMixin, PoissonEloEstimator, 
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -274,7 +274,7 @@ class SKPoissonEloEstimator(SKRegressionRatingSystemMixin, PoissonEloEstimator, 
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
         date_col: str = "t",
-        additional_regressors: Optional[List[Regressor]] = None,
+        regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
         """
@@ -296,7 +296,7 @@ class SKPoissonEloEstimator(SKRegressionRatingSystemMixin, PoissonEloEstimator, 
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -309,6 +309,6 @@ class SKPoissonEloEstimator(SKRegressionRatingSystemMixin, PoissonEloEstimator, 
             entity_cols=entity_cols,
             score_col=score_col,
             date_col=date_col,
-            additional_regressors=additional_regressors,
+            regressors=regressors,
             track_rating_history=track_rating_history,
         )

@@ -66,15 +66,15 @@ from elo_grad import EloEstimator, Regressor
 home_col = "home"
 df = ...
 estimator = EloEstimator(
-    k_factor=20, 
+    k_factor=20,
     default_init_rating=1200,
     entity_cols=("player_1", "player_2"),
     score_col="result",
     # Set the initial rating for home advantage to 0
-    init_ratings={home_col: (None, 0)},  
+    init_ratings={home_col: (None, 0)},
     # Set k-factor/step-size to 1 for the home advantage regressor
     # and set an L1 penalty with lambda = 0.1
-    additional_regressors=[Regressor(name=home_col, k_factor=1, penalty="l1", lambda_reg=0.1)],
+    regressors=[Regressor(name=home_col, k_factor=1, penalty="l1", lambda_reg=0.1)],
 )
 # Get expected scores
 expected_scores = estimator.predict_proba(df)
