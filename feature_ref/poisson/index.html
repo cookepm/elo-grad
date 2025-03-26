@@ -1,0 +1,1014 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="An extended Elo model Python implementation.">
+      
+      
+        <meta name="author" content="Mike Cooke">
+      
+      
+      
+        <link rel="prev" href="../additional_regressors/">
+      
+      
+        <link rel="next" href="../regularisation/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.9">
+    
+    
+      
+        <title>Poisson Elo - EloGrad</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.4af4bdda.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-ZZ204G4E2B"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-ZZ204G4E2B",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-ZZ204G4E2B",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>if("undefined"!=typeof __md_analytics){var consent=__md_get("__consent");consent&&consent.analytics&&__md_analytics()}</script>
+  
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#poisson-elo" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="EloGrad" class="md-header__button md-logo" aria-label="EloGrad" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            EloGrad
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Poisson Elo
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cookepm/elo-grad" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cookepm/elo-grad
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="EloGrad" class="md-nav__button md-logo" aria-label="EloGrad" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    EloGrad
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cookepm/elo-grad" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cookepm/elo-grad
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../intro/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Elo as Logistic Regression
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Feature Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Feature Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../additional_regressors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Additional Regressors
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Poisson Elo
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Poisson Elo
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Motivation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#poisson-regression" class="md-nav__link">
+    <span class="md-ellipsis">
+      Poisson Regression
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stochastic-gradient-descent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stochastic Gradient Descent
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#with-additional-regressors" class="md-nav__link">
+    <span class="md-ellipsis">
+      With Additional Regressors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-approaches" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other Approaches
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      References
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regularisation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Regularisation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Motivation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#poisson-regression" class="md-nav__link">
+    <span class="md-ellipsis">
+      Poisson Regression
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stochastic-gradient-descent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Stochastic Gradient Descent
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#with-additional-regressors" class="md-nav__link">
+    <span class="md-ellipsis">
+      With Additional Regressors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-approaches" class="md-nav__link">
+    <span class="md-ellipsis">
+      Other Approaches
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      References
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="poisson-elo">Poisson Elo</h1>
+<p>If we can frame the <a href="../../intro/">Elo rating system as logistic regression</a>,
+why not define other rating systems based on other 
+<a href="https://en.wikipedia.org/wiki/Generalized_linear_model">generalized linear models</a> (GLMs)?
+We do just that and derive a rating system equivalent to 
+<a href="https://en.wikipedia.org/wiki/Poisson_regression">Poisson regression</a>
+here.</p>
+<h2 id="motivation">Motivation</h2>
+<p>Poisson regression models <em>count</em> data as the response variable.
+This can be useful for sports such as football,
+where we can predict the number of goals a team will score.</p>
+<p>The Poisson model is even <a href="https://bmcmedresmethodol.biomedcentral.com/articles/10.1186/s12874-018-0519-5">used to model binary outcomes</a>
+in cases where we are interested in <a href="https://en.wikipedia.org/wiki/Relative_risk">relative risk ratios</a>
+rather than the <a href="https://en.wikipedia.org/wiki/Odds_ratio">odds ratio</a>.
+The latter is easily extracted from the logistic regression model but is non-intuitive,
+while the former is hard to extract from the logistic regression model
+but straightforward to extract from the Poisson model.</p>
+<h2 id="poisson-regression">Poisson Regression</h2>
+<p>Suppose we have a count response <span class="arithmatex">\(y|\mathbf{x}\sim\text{Poisson}(\lambda)\)</span>,
+where <span class="arithmatex">\(\mathbf{x}\)</span> is the set of input variables/regressors 
+and <span class="arithmatex">\(\lambda\)</span> is the expectation of response in a given interval.
+If we model this outcome with model parameters <span class="arithmatex">\(\mathbf{w}\)</span>, the likelihood function is given by
+$$
+\begin{equation}
+\mathcal{L}(\mathbf{w})=
+\frac{\lambda(\mathbf{w;x})^y e^{-\lambda(\mathbf{w;x})}}{y!}.
+\end{equation}
+$$
+As in <a href="../../intro/">Elo as Logistic Regression</a>, we are ignoring the product over samples for the moment.</p>
+<p>The Poisson model assumes the count response is given by
+$$
+\begin{equation}
+\lambda(\mathbf{w};\mathbf{x})=
+e^{\mathbf{w}\cdot x}.
+\end{equation}
+$$
+We have not included an intercept although this can easily be added using an <a href="../additional_regressors/">additional regressor</a> (see the <a href="./#example">example</a>).</p>
+<p>Suppose each observation corresponds to the number of points/goals scored in a given interval between two of <span class="arithmatex">\(n\)</span> entities.
+We can define two ratings for each entity -
+one for their attacking ability and one for their defensive ability.
+Let the index <span class="arithmatex">\(i\)</span> run over the attacking abilities
+and the index <span class="arithmatex">\(\underbar{i}\)</span> run over the defensive abilities.</p>
+<p>We can write our regressors as</p>
+<div class="arithmatex">\[
+\begin{equation}
+\mathbf{x}_k=\delta_{ik} - \delta_{j\underbar{k}},
+\end{equation}
+\]</div>
+<p>where <span class="arithmatex">\(\delta_{ij}\)</span> is the <em>Kronecker delta</em>.
+The table below shows how the data would look like for three observations:</p>
+<ul>
+<li>team <span class="arithmatex">\(1\)</span> scores two goals against team <span class="arithmatex">\(2\)</span> on 01/01/24,</li>
+<li>team <span class="arithmatex">\(2\)</span> scores one goal against team <span class="arithmatex">\(1\)</span> on 01/01/24,</li>
+<li>team <span class="arithmatex">\(n\)</span> score no goals against team <span class="arithmatex">\(1\)</span> on 02/01/24.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>y</th>
+<th>Team 1 (A)</th>
+<th>Team 2 (A)</th>
+<th>Team 3 (A)</th>
+<th>...</th>
+<th>Team n (A)</th>
+<th>Team 1 (D)</th>
+<th>Team 2 (D)</th>
+<th>Team 3 (D)</th>
+<th>...</th>
+<th>Team n (D)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01/01/24</td>
+<td>2</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>...</td>
+<td>0</td>
+<td>0</td>
+<td>-1</td>
+<td>0</td>
+<td>...</td>
+<td>0</td>
+</tr>
+<tr>
+<td>01/01/24</td>
+<td>1</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>...</td>
+<td>1</td>
+<td>-1</td>
+<td>0</td>
+<td>0</td>
+<td>...</td>
+<td>0</td>
+</tr>
+<tr>
+<td>02/01/24</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>...</td>
+<td>1</td>
+<td>-1</td>
+<td>0</td>
+<td>0</td>
+<td>...</td>
+<td>0</td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+<td>...</td>
+</tr>
+</tbody>
+</table>
+<p>where <em>(A)</em> indicates attacking ability and <em>(D)</em> defensive ability.</p>
+<p>With the regressors described above, we can rewrite (2) as
+$$
+\begin{equation}
+\lambda(\mathbf{w};\mathbf{x})=
+\exp(w_i - w_{\underbar{j}}),
+\end{equation}
+$$
+where <span class="arithmatex">\(y_{ij}\)</span> represents the goals scored by team <span class="arithmatex">\(i\)</span> against <span class="arithmatex">\(j\)</span>.
+Recalling that <span class="arithmatex">\(\lambda\)</span> is the expected count, we can then write
+$$
+\begin{equation}
+\mathbb{E}\left[y_{ij}|w_1,\cdots w_n\right]=
+\exp(w_i - w_{\underbar{j}}).
+\end{equation}
+$$</p>
+<h2 id="stochastic-gradient-descent">Stochastic Gradient Descent</h2>
+<p>It remains to find the update method for the rating system,
+which is just (mini-batch) stochastic gradient descent (SGD).</p>
+<p>We can perform gradient descent for Poisson regression by minimising the negative log-likelihood.
+The gradient of the negative log likelihood for Poisson regression is given by
+$$
+\begin{align}
+\nabla_{\mathbf{w}}\mathcal l &amp;=
+-\sum_a \left[
+y_a \frac{\nabla_{\mathbf{w}}\lambda(\mathbf{w};\mathbf{x}_a)}{\lambda(\mathbf{w};\mathbf{x}_a)}
+- \lambda(\mathbf{w};\mathbf{x}_a) \nabla_a \lambda(\mathbf{w};\mathbf{x}_a)
+\right],\\
+&amp;=-\sum_a\left[
+y_a \mathbf{x}_a
+- (1 - y_a)p(y|\mathbf{w};\mathbf{x}_a))
+\right]\mathbf{x}_a,\\
+&amp;=\sum_a\left[\lambda(\mathbf{w};\mathbf{x}) - y_a\right]\mathbf{x}_a,
+\end{align}
+$$
+where <span class="arithmatex">\(\lambda(\mathbf{w};\mathbf{x})\)</span> is the expected count (2),
+<span class="arithmatex">\(l\)</span> is the negative log-likelihood and <span class="arithmatex">\(a\)</span> runs over the set of observations/games.</p>
+<p>The update method for the model parameters is then given by
+$$
+\begin{equation}
+\mathbf{w}^t
+=\mathbf{w}^{t-1} + \alpha \sum_a \left(y_a - \lambda(\mathbf{w};\mathbf{x})\right).
+\end{equation}
+$$</p>
+<p>If we have the regressors described in the 
+<a href="./#poisson-regression">Poisson Regression section</a> 
+above
+and restrict ourselves to stochastic gradient descent, 
+this becomes
+$$
+\begin{equation}
+\mathbf{w}^t
+=\mathbf{w}^{t-1} + \alpha \left(y_{ij} - \exp(w_i - w_{\underbar{j}})\right)
+\end{equation}
+$$
+or
+$$
+\begin{equation}
+\mathbf{r}^t
+=\mathbf{r}^{t-1} + k \left(y_{ij} - 10^{(r_i - r_{\underbar{j}}) / 2\beta}\right).
+\end{equation}
+$$
+where <span class="arithmatex">\(r_i:=2\beta w_i / \ln 10\)</span> and <span class="arithmatex">\(k:=2\alpha\beta / \ln10\)</span>.
+We perform this change of variables to align with Elo conventions.
+Now (5) is given by
+$$
+\begin{equation}
+\mathbb{E}\left[y_{ij}|r_1,\cdots r_n\right]=
+10^{(r_i - r_{\underbar{j}}) / 2\beta}.
+\end{equation}
+$$</p>
+<h2 id="with-additional-regressors">With Additional Regressors</h2>
+<p>Following <a href="../additional_regressors/">Additional Regressors</a>,
+equation (11) become</p>
+<div class="arithmatex">\[
+\begin{equation}
+\mathbb{E}\left[y_{ij}|r_1,\cdots r_n;\hat{r}_k\right]=
+10^{(r_i - r_{\underbar{j}} + \hat{r}_k x_k) / 2\beta}.
+\end{equation}
+\]</div>
+<p>with (10) modified accordingly. </p>
+<h2 id="example">Example</h2>
+<p>We provide a more detailed example,
+including details of how data can be pre-processed to pass to the rating system in
+<a href="https://github.com/cookepm/elo-grad/blob/main/examples/football.ipynb"><code>examples/football.ipynb</code></a>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">elo_grad</span><span class="w"> </span><span class="kn">import</span> <span class="n">PoissonEloEstimator</span><span class="p">,</span> <span class="n">Regressor</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Input DataFrame with sorted index of Unix timestamps</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># and columns entity_1_attacking | entity_2_defensive | score | home | intercept</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># where score is the number of points/goals scored</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># by entity 1 against entity 2 and home is a Boolean flag indicating home advantage.</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># intercept is a column with all 1s which represents the mean number of goals</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># when entities are evenly matched and there is no home advantage.</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">intercept_col</span> <span class="o">=</span> <span class="s2">&quot;intercept&quot;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">home_col</span> <span class="o">=</span> <span class="s2">&quot;home&quot;</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">df</span> <span class="o">=</span> <span class="o">...</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">estimator</span> <span class="o">=</span> <span class="n">PoissonEloEstimator</span><span class="p">(</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">k_factor</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> 
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">default_init_rating</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">entity_cols</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;entity_1_attacking&quot;</span><span class="p">,</span> <span class="s2">&quot;entity_2_defensive&quot;</span><span class="p">),</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">score_col</span><span class="o">=</span><span class="s2">&quot;result&quot;</span><span class="p">,</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="c1"># Set the initial rating for home advantage to 0</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">init_ratings</span><span class="o">=</span><span class="p">{</span><span class="n">intercept_col</span><span class="p">:</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">home_col</span><span class="p">:</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)},</span>  
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="c1"># Set k-factor/step-size to 1 for the both the mean and home advantage regressor</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">additional_regressors</span><span class="o">=</span><span class="p">[</span><span class="n">Regressor</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">intercept_col</span><span class="p">,</span> <span class="n">k_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">Regressor</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">home_col</span><span class="p">,</span> <span class="n">k_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">)],</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="p">)</span>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Get expected scores</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">expected_scores</span> <span class="o">=</span> <span class="n">estimator</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="c1"># Get final ratings (of form (Unix timestamp, rating)) for home advantage</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">ratings</span> <span class="o">=</span> <span class="n">estimator</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ratings</span><span class="p">[</span><span class="n">home_col</span><span class="p">]</span>
+</span></code></pre></div>
+<h2 id="other-approaches">Other Approaches</h2>
+<p>The Elo rating system is the basis for 
+<a href="https://abcnews.go.com/538">538</a>'s <a href="https://fivethirtyeight.com/methodology/how-our-nfl-predictions-work/">NFL predictions</a>.
+They use the traditional, logistic regression-based Elo rating system
+but also incorporate margin of victory.
+They do this by including a multiplier in the update method.
+Given the natural equivalence of the Elo rating system with logistic regression,
+we believe this is not a very natural way to include margin of victory
+and that using a Poisson-based Elo should be preferred.</p>
+<h2 id="references">References</h2>
+<p>A Poisson regression-based Elo rating system was implemented 
+<a href="https://github.com/octonion/puzzles/blob/master/elo/poisson.py">here</a>
+and provided the inspiration for this.
+Note that the update methods used there are not the same.</p>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+      <div class="md-consent" data-md-component="consent" id="__consent" hidden>
+        <div class="md-consent__overlay"></div>
+        <aside class="md-consent__inner">
+          <form class="md-consent__form md-grid md-typeset" name="consent">
+            
+
+  
+    
+  
+
+
+  
+    
+  
+
+
+
+  
+
+
+<h4>Cookie consent</h4>
+<p>We use cookies to recognize your repeated visits and preferences, as well as to measure the effectiveness of our documentation and whether users find what they're searching for. With your consent, you're helping us to make our documentation better.</p>
+<input class="md-toggle" type="checkbox" id="__settings" >
+<div class="md-consent__settings">
+  <ul class="task-list">
+    
+      
+      
+        
+        
+      
+      <li class="task-list-item">
+        <label class="task-list-control">
+          <input type="checkbox" name="analytics" checked>
+          <span class="task-list-indicator"></span>
+          Google Analytics
+        </label>
+      </li>
+    
+      
+      
+        
+        
+      
+      <li class="task-list-item">
+        <label class="task-list-control">
+          <input type="checkbox" name="github" checked>
+          <span class="task-list-indicator"></span>
+          GitHub
+        </label>
+      </li>
+    
+  </ul>
+</div>
+<div class="md-consent__controls">
+  
+    
+      <button class="md-button md-button--primary">Accept</button>
+    
+    
+    
+  
+    
+    
+    
+      <label class="md-button" for="__settings">Manage settings</label>
+    
+  
+</div>
+          </form>
+        </aside>
+      </div>
+      <script>var consent=__md_get("__consent");if(consent)for(var input of document.forms.consent.elements)input.name&&(input.checked=consent[input.name]||!1);else"file:"!==location.protocol&&setTimeout((function(){document.querySelector("[data-md-component=consent]").hidden=!1}),250);var form=document.forms.consent;for(var action of["submit","reset"])form.addEventListener(action,(function(e){if(e.preventDefault(),"reset"===e.type)for(var n of document.forms.consent.elements)n.name&&(n.checked=!1);__md_set("__consent",Object.fromEntries(Array.from(new FormData(form).keys()).map((function(e){return[e,!0]})))),location.hash="",location.reload()}))</script>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["content.code.copy"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c8b220af.min.js"></script>
+      
+        <script src="../../javascripts/katex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
+      
+    
+  </body>
+</html>
