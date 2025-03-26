@@ -1,6 +1,6 @@
 # :chess_pawn: EloGrad
 
-**Extended Elo rating system implementation exploiting the equivalence with logistic regression.**
+**Extended Elo rating system implementation based on the equivalence with logistic regression.**
 
 **EloGrad** _(**Elo** as **Grad**ient descent)_ leverages the framing of the 
 [Elo rating system](https://en.wikipedia.org/wiki/Elo_rating_system)
