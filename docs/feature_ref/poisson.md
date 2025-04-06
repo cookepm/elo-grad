@@ -182,14 +182,15 @@ intercept_col = "intercept"
 home_col = "home"
 df = ...
 estimator = PoissonEloEstimator(
-    k_factor=20, 
+    k_factor=20,
     default_init_rating=1200,
     entity_cols=("entity_1_attacking", "entity_2_defensive"),
     score_col="result",
     # Set the initial rating for home advantage to 0
-    init_ratings={intercept_col: (None, 0), home_col: (None, 0)},  
+    init_ratings={intercept_col: (None, 0), home_col: (None, 0)},
     # Set k-factor/step-size to 1 for the both the mean and home advantage regressor
-    additional_regressors=[Regressor(name=intercept_col, k_factor=1), Regressor(name=home_col, k_factor=1)],
+    regressors=[Regressor(name=intercept_col, k_factor=1),
+                Regressor(name=home_col, k_factor=1)],
 )
 # Get expected scores
 expected_scores = estimator.predict(df)

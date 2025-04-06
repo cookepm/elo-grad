@@ -55,7 +55,13 @@ class Regressor:
             raise ValueError("Penalty must be None, 'l1' or 'l2'.")
 
 
-class Model(abc.ABC):
+class BaseModel(abc.ABC):
+
+    def __init__(self, beta: float) -> None:
+        self.beta: float = beta
+
+
+class UnivariateModel(BaseModel, abc.ABC):
 
     def __init__(
         self,
@@ -63,11 +69,11 @@ class Model(abc.ABC):
         default_init_rating: float,
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
     ) -> None:
-        self.beta: float = beta
+        super().__init__(beta)
+        self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
         self.ratings: Dict[str, Tuple[Optional[int], float]] = defaultdict(
             lambda: (None, default_init_rating)
         )
-        self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
         if self.init_ratings is not None:
             self.ratings = self.ratings | self.init_ratings
 
@@ -84,35 +90,46 @@ class Model(abc.ABC):
         ...
 
 
-class Optimizer(abc.ABC):
+class BaseOptimizer(abc.ABC):
+
+    def __init__(self, k_factor: float) -> None:
+        self.k_factor: float = k_factor
 
     @classmethod
-    @abc.abstractmethod
-    def _get_penalty(cls, model: Model, regressor: Regressor) -> float:
-        ...
+    def _get_penalty(cls, model: BaseModel, regressor: Regressor) -> float:
+        match regressor.penalty:
+            case "l1":
+                return regressor.lambda_reg * math.copysign(1, model.ratings[regressor.name][1])  # type:ignore
+            case "l2":
+                return 2 * regressor.lambda_reg * model.ratings[regressor.name][1]  # type:ignore
+            case _:
+                return 0.0
+
+
+class UnivariateOptimizer(BaseOptimizer, abc.ABC):
+
+    def __init__(
+        self,
+        k_factor: float,
+        regressors: Optional[List[Regressor]],
+    ):
+        super().__init__(k_factor)
+        self.regressors: Optional[List[Regressor]] = regressors
 
     @abc.abstractmethod
     def calculate_update_step(
         self,
-        model: Model,
+        model: UnivariateModel,
         y: int,
         entity_1: str,
         entity_2: str,
-        additional_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[float, ...]],
         expected_score: Optional[float],
     ) -> Generator[float, None, None]:
         ...
 
 
-class LogisticRegression(Model):
-
-    def __init__(
-        self,
-        beta: float,
-        default_init_rating: float,
-        init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]],
-    ) -> None:
-        super().__init__(beta, default_init_rating, init_ratings)
+class LogisticRegression(UnivariateModel):
 
     def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
         if y not in {0, 1}:
@@ -134,15 +151,7 @@ class LogisticRegression(Model):
         return 1 / (1 + math.pow(10, -sum(args) / (2 * self.beta)))
 
 
-class PoissonRegression(Model):
-
-    def __init__(
-        self,
-        beta: float,
-        default_init_rating: float,
-        init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]],
-    ) -> None:
-        super().__init__(beta, default_init_rating, init_ratings)
+class PoissonRegression(UnivariateModel):
 
     def calculate_gradient_from_expected_score(self, y: int, expected_score: float) -> float:
         if not isinstance(y, int):
@@ -164,59 +173,38 @@ class PoissonRegression(Model):
         return math.pow(10, sum(args) / (2 * self.beta))
 
 
-class SGDOptimizer(Optimizer):
-
-    def __init__(self, k_factor: float, additional_regressors: Optional[List[Regressor]]) -> None:
-        self.k_factor: float = k_factor
-        self.additional_regressors: Optional[List[Regressor]] = additional_regressors
-        if additional_regressors is None:
-            self.k_factor_vec: Tuple[float, ...] = (k_factor,)
-        else:
-            self.k_factor_vec = (
-                k_factor,
-                *(r.k_factor if r.k_factor is not None else k_factor for r in additional_regressors),
-            )
-
-    @classmethod
-    def _get_penalty(cls, model: Model, regressor: Regressor) -> float:
-        match regressor.penalty:
-            case "l1":
-                return regressor.lambda_reg * math.copysign(1, model.ratings[regressor.name][1])  # type:ignore
-            case "l2":
-                return 2 * regressor.lambda_reg * model.ratings[regressor.name][1]  # type:ignore
-            case _:
-                return 0.0
+class SGDOptimizer(UnivariateOptimizer):
 
     def calculate_update_step(
         self,
-        model: Model,
+        model: UnivariateModel,
         y: int,
         entity_1: str,
         entity_2: str,
-        additional_regressor_values: Optional[Tuple[float, ...]],
+        regressor_values: Optional[Tuple[float, ...]],
         expected_score: Optional[float],
     ) -> Generator[float, None, None]:
         if expected_score is not None:
             # If we already know the expected score, we shouldn't recalculate it
             entity_grad: float = model.calculate_gradient_from_expected_score(y, expected_score)
         else:
-            if self.additional_regressors is None:
-                additional_regressor_contrib: float = 0.0
+            if self.regressors is None:
+                regressor_contrib: float = 0.0
             else:
-                additional_regressor_contrib = sum(
+                regressor_contrib = sum(
                     model.ratings[r.name][1] * v  # type:ignore
-                    for r, v in zip(self.additional_regressors, additional_regressor_values)  # type:ignore
+                    for r, v in zip(self.regressors, regressor_values)  # type:ignore
                 )
             entity_grad = model.calculate_gradient(
                 y,
                 model.ratings[entity_1][1],
                 -model.ratings[entity_2][1],
-                additional_regressor_contrib,
+                regressor_contrib,
             )
 
-        yield self.k_factor_vec[0] * entity_grad
-        if self.additional_regressors is not None:
-            for r, v in zip(self.additional_regressors, additional_regressor_values):  # type:ignore
+        yield self.k_factor * entity_grad
+        if self.regressors is not None:
+            for r, v in zip(self.regressors, regressor_values):  # type:ignore
                  yield r.k_factor * ((v * entity_grad) - self._get_penalty(model, r))  # type:ignore
 
 
@@ -225,6 +213,7 @@ class RatingSystemMixin(abc.ABC):
     @abc.abstractmethod
     def predict(self, X):
         ...
+
 
 class ClassifierRatingSystemMixin(RatingSystemMixin):
     """
@@ -273,7 +262,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
 
     Attributes
     ----------
-    model_type : Type[Model]
+    model_type : Type[UnivariateModel]
         Base model class type.
     beta : float
         Normalization factor for ratings when computing expected score.
@@ -287,9 +276,9 @@ class BaseEloEstimator(HistoryPlotterMixin):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    model : Model
+    model : UnivariateModel
         Underlying statistical model.
-    optimizer : Optimizer
+    optimizer : UnivariateOptimizer
         Optimizer to update the model.
     rating_history : List[Tuple[Optional[int], float]]
         Historical ratings of entities (if track_rating_history is True).
@@ -299,7 +288,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -318,7 +307,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
 
     def __init__(
         self,
-        model_type: Type[Model],
+        model_type: Type[UnivariateModel],
         k_factor: float,
         default_init_rating: float,
         beta: float,
@@ -326,13 +315,13 @@ class BaseEloEstimator(HistoryPlotterMixin):
         entity_cols: Tuple[str, str],
         score_col: str,
         date_col: str,
-        additional_regressors: Optional[List[Regressor]],
+        regressors: Optional[List[Regressor]],
         track_rating_history: bool,
     ) -> None:
         """
         Parameters
         ----------
-        model_type : Type[Model]
+        model_type : Type[UnivariateModel]
             Base model class type.
         k_factor : float
             Elo K-factor/step-size for gradient descent for the entities.
@@ -349,7 +338,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -361,19 +350,19 @@ class BaseEloEstimator(HistoryPlotterMixin):
         self.beta: float = beta
         self.default_init_rating: float = default_init_rating
         self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
-        self.model_type: Type[Model] = model_type
-        self.model: Model = model_type(
+        self.model_type: Type[UnivariateModel] = model_type
+        self.model: UnivariateModel = model_type(
             beta=beta,
             default_init_rating=default_init_rating,
             init_ratings=init_ratings,
         )
-        self.additional_regressors: List[Regressor] = additional_regressors if additional_regressors is not None else []
-        if additional_regressors is not None:
-            self.columns.extend([r.name for r in additional_regressors])
+        self.regressors: List[Regressor] = regressors if regressors is not None else []
+        if regressors is not None:
+            self.columns.extend([r.name for r in regressors])
         self.k_factor: float = k_factor
-        self.optimizer: Optimizer = SGDOptimizer(
+        self.optimizer: UnivariateOptimizer = SGDOptimizer(
             k_factor=self.k_factor,
-            additional_regressors=self.additional_regressors,
+            regressors=self.regressors,
         )
         self.track_rating_history: bool = track_rating_history
         self.rating_history: List[Tuple[Optional[int], float]] = defaultdict(list)  # type:ignore
@@ -388,7 +377,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
             default_init_rating=self.default_init_rating,
             init_ratings=self.init_ratings,
         )
-        self.optimizer = SGDOptimizer(k_factor=self.k_factor, additional_regressors=self.additional_regressors)
+        self.optimizer = SGDOptimizer(k_factor=self.k_factor, regressors=self.regressors)
 
     def _update_ratings(self, t: int, rating_deltas: Dict[str, float]) -> None:
         for entity in rating_deltas:
@@ -410,14 +399,14 @@ class BaseEloEstimator(HistoryPlotterMixin):
             raise ValueError("DataFrame must be sorted by date.")
         current_ix: int = df[self.date_col].item(0)
 
-        additional_regressor_flag: bool = len(self.additional_regressors) > 0
-        additional_regressor_contrib: float = 0.0
-        additional_regressor_values: Optional[Tuple[float, ...]] = None
+        regressor_flag: bool = len(self.regressors) > 0
+        regressor_contrib: float = 0.0
+        regressor_values: Optional[Tuple[float, ...]] = None
         preds = array("f") if return_expected_score else None
         rating_deltas: Dict[str, float] = defaultdict(float)
         for row in df.iter_rows(named=False, buffer_size=512):
-            if additional_regressor_flag:
-                ix, entity_1, entity_2, score, *additional_regressor_values = row
+            if regressor_flag:
+                ix, entity_1, entity_2, score, *regressor_values = row
             else:
                 ix, entity_1, entity_2, score = row
 
@@ -427,16 +416,16 @@ class BaseEloEstimator(HistoryPlotterMixin):
                 if self.track_rating_history:
                     self.record_ratings()
 
-            if additional_regressor_flag:
-                additional_regressor_contrib = sum(
+            if regressor_flag:
+                regressor_contrib = sum(
                     self.model.ratings[k.name][1] * v  # type:ignore
-                    for k, v in zip(self.additional_regressors, additional_regressor_values)  # type:ignore
+                    for k, v in zip(self.regressors, regressor_values)  # type:ignore
                 )
 
             expected_score: float = self.model.calculate_expected_score(
                 self.model.ratings[entity_1][1],
                 -self.model.ratings[entity_2][1],
-                additional_regressor_contrib,
+                regressor_contrib,
             )
             if return_expected_score:
                 preds.append(expected_score)  # type:ignore
@@ -446,14 +435,14 @@ class BaseEloEstimator(HistoryPlotterMixin):
                 y=score,
                 entity_1=entity_1,
                 entity_2=entity_2,
-                additional_regressor_values=additional_regressor_values,
+                regressor_values=regressor_values,
                 expected_score=expected_score,
             )
             entity_update: float = next(_rating_deltas)
             rating_deltas[entity_1] += entity_update
             rating_deltas[entity_2] -= entity_update
-            if additional_regressor_flag:
-                for r in self.additional_regressors:
+            if regressor_flag:
+                for r in self.regressors:
                     rating_deltas[r.name] += next(_rating_deltas)
 
         self._update_ratings(ix, rating_deltas)
@@ -487,9 +476,9 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    model : Model
+    model : UnivariateModel
         Underlying statistical model.
-    optimizer : Optimizer
+    optimizer : UnivariateOptimizer
         Optimizer to update the model.
     rating_history : List[Tuple[Optional[int], float]]
         Historical ratings of entities (if track_rating_history is True).
@@ -499,7 +488,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -525,7 +514,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
         date_col: str = "t",
-        additional_regressors: Optional[List[Regressor]] = None,
+        regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
         """
@@ -547,7 +536,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -561,7 +550,7 @@ class EloEstimator(ClassifierRatingSystemMixin, BaseEloEstimator):
             entity_cols=entity_cols,
             score_col=score_col,
             date_col=date_col,
-            additional_regressors=additional_regressors,
+            regressors=regressors,
             track_rating_history=track_rating_history,
         )
 
@@ -584,9 +573,9 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         Initial ratings for entities (dictionary of form entity: (Unix timestamp, rating))
     k_factor : float
         Elo K-factor/step-size for gradient descent.
-    model : Model
+    model : UnivariateModel
         Underlying statistical model.
-    optimizer : Optimizer
+    optimizer : UnivariateOptimizer
         Optimizer to update the model.
     rating_history : List[Tuple[Optional[int], float]]
         Historical ratings of entities (if track_rating_history is True).
@@ -596,7 +585,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
     date_col : str
         Name of date column, which has Unix timestamp (in seconds) of the
         game.
-    additional_regressors : Optional[List[Regressor]]
+    regressors : Optional[List[Regressor]]
         Additional regressors to include, e.g. home advantage.
     track_rating_history : bool
         Flag to track historical ratings of entities.
@@ -620,7 +609,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         entity_cols: Tuple[str, str] = ("entity_1", "entity_2"),
         score_col: str = "score",
         date_col: str = "t",
-        additional_regressors: Optional[List[Regressor]] = None,
+        regressors: Optional[List[Regressor]] = None,
         track_rating_history: bool = False,
     ) -> None:
         """
@@ -642,7 +631,7 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
         date_col : str
             Name of date column, which has Unix timestamp (in seconds) of the
             game.
-        additional_regressors : Optional[List[Regressor]]
+        regressors : Optional[List[Regressor]]
             Additional regressors to include, e.g. home advantage.
         track_rating_history : bool
             Flag to track historical ratings of entities.
@@ -656,6 +645,6 @@ class PoissonEloEstimator(RegressionRatingSystemMixin, BaseEloEstimator):
             entity_cols=entity_cols,
             score_col=score_col,
             date_col=date_col,
-            additional_regressors=additional_regressors,
+            regressors=regressors,
             track_rating_history=track_rating_history,
         )
