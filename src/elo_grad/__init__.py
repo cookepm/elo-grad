@@ -5,7 +5,7 @@ from importlib.metadata import version
 
 from array import array
 from collections import defaultdict
-from typing import Tuple, Optional, Dict, List, Generator, Type, Any
+from typing import Tuple, Optional, Dict, List, Generator, Type, Any, DefaultDict
 
 import math
 import narwhals as nw
@@ -64,7 +64,7 @@ class Model(abc.ABC):
         init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = None,
     ) -> None:
         self.beta: float = beta
-        self.ratings: Dict[str, Tuple[Optional[int], float]] = defaultdict(
+        self.ratings: DefaultDict[str, Tuple[Optional[int], float]] = defaultdict(
             lambda: (None, default_init_rating)
         )
         self.init_ratings: Optional[Dict[str, Tuple[Optional[int], float]]] = init_ratings
@@ -291,7 +291,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         Underlying statistical model.
     optimizer : Optimizer
         Optimizer to update the model.
-    rating_history : List[Tuple[Optional[int], float]]
+    rating_history : DefaultDict[str, List[Tuple[Optional[int], float]]]
         Historical ratings of entities (if track_rating_history is True).
     score_col : str
         Name of score column (1 if entity_1 wins and 0 if entity_2 wins).
@@ -376,7 +376,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
             additional_regressors=self.additional_regressors,
         )
         self.track_rating_history: bool = track_rating_history
-        self.rating_history: List[Tuple[Optional[int], float]] = defaultdict(list)  # type:ignore
+        self.rating_history: DefaultDict[str, List[Tuple[Optional[int], float]]] = defaultdict(list)
 
     def reinitialize(self) -> None:
         """
@@ -399,7 +399,7 @@ class BaseEloEstimator(HistoryPlotterMixin):
         Record the current ratings of entities.
         """
         for k, v in self.model.ratings.items():
-            self.rating_history[k].append(v)  # type:ignore
+            self.rating_history[k].append(v)
 
     def _transform(self, X, return_expected_score):
         df: nw.DataFrame = nw.from_native(X)
